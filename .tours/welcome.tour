@@ -1,0 +1,16 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Welcome",
+  "steps": [
+    {
+      "file": "create.ps1",
+      "description": "The $config is the object containing all configuration parameters you have defined in HelloID.",
+      "line": 9
+    },
+    {
+      "file": "create.ps1",
+      "description": "send_invite: sends an eMail containing an invitation to login to StudyTube. The email is send to the email address specified for the account.",
+      "line": 29
+    }
+  ]
+}
