@@ -53,13 +53,13 @@ The `create.ps1` either creates or correlates a HelloID person with a StudyTube 
 
 In order to get the ID:
 
-- All users from Visma are retrieved.
+- All users from StudyTube are retrieved.
 - A lookup table is created based on the `employee number` property.
 - The StudyTube account (and unique ID) will be searched using the `employee number`.
 
 > StudyTube accounts are retrieved using pagination
 
-> Because all StudyTube accounts are retrieved within the `create.ps` you may encounter issue's.
+> Because all StudyTube accounts are retrieved within the `create.ps1` you may encounter issue's.
 
 #### Entitlements
 
