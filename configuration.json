@@ -1,43 +1,43 @@
 [
-  {
-    "key": "ApiToken",
-    "type": "input",
-    "defaultValue": "",
-    "templateOptions": {
-      "type": "password",
-      "label": "ApiToken",
-      "description": "The API Token used to authenticate. This must be retrieved from within the application",
-      "required": true
+    {
+        "key": "ApiToken",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "type": "password",
+            "label": "ApiToken",
+            "description": "The ApiToken to connect to StudyTube",
+            "required": true
+        }
+    },
+    {
+        "key": "CompanyId",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "label": "CompanyId",
+            "description": "The CompanyId to connect to StudyTube",
+            "required": true
+        }
+    },
+    {
+        "key": "BaseUrl",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "label": "BaseUrl",
+            "description": "The URL to the API.",
+            "required": true
+        }
+    },
+    {
+        "key": "IsDebug",
+        "type": "checkbox",
+        "defaultValue": true,
+        "templateOptions": {
+          "label": "Toggle debug logging",
+          "description": "When toggled, debug logging will be displayed",
+          "required": false
+        }
     }
-  },
-  {
-    "key": "BaseUrl",
-    "type": "input",
-    "defaultValue": "",
-    "templateOptions": {
-      "label": "BaseUrl",
-      "description": "The url to connect to StudyTube",
-      "required": true
-    }
-  },
-  {
-    "key": "CompanyID",
-    "type": "input",
-    "defaultValue": "",
-    "templateOptions": {
-      "label": "CompanyID",
-      "description": "The CompanyID for the StudyTube environment",
-      "required": true
-    }
-  },
-  {
-    "key": "IsConnectionTls12",
-    "type": "checkbox",
-    "defaultValue": true,
-    "templateOptions": {
-      "label": "Enable TLS1.2",
-      "description": "Enables TLS 1.2. Note that is not necessary when running the connector in the cloud",
-      "required": false
-    }
-  }
 ]
