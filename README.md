@@ -53,7 +53,7 @@ The following settings are required to connect to the API.
 
 Normally, the connector will verify if an account must be either created or -if an existing account is found- correlated. A new functionality is the possibility to update the account in the target system during the correlation process. Default this behavior is disabled. Meaning, the account will only be created or correlated.
 
-You can change this behaviour in the `create.ps` by setting the following boolean value to true: `$updatePerson = $true`. You will find this boolean value on line 55.
+You can change this behaviour in the `create.ps1` by setting the following boolean value to true: `$updatePerson = $true`. You will find this boolean value on line 55.
 
 #### Correlation
 
