@@ -46,15 +46,21 @@ The following settings are required to connect to the API.
 | ClientSecret | The ClientSecret to connect to StudyTube  | Yes        |
 | BaseUrl      | The URL to the StudyTube API.| Yes        |
 | TokenUrl     | The URL to StudyTube for retrieving the accessToken. | Yes        |
-| BaseUrl      | The URL to the StudyTube application | Yes         |
+| IsDebug      | When toggled, debug logging will be displayed | No         |
 
 ### Prerequisites
 
 ### Remarks
 
+#### Creation / correlation process
+
+Normally, the connector will verify if an account must be either created or -if an existing account is found- correlated. A new functionality is the possibility to update the account in the target system during the correlation process. Default this behavior is disabled. Meaning, the account will only be created or correlated.
+
+You can change this behaviour in the `create.ps` by setting the following boolean value to true: `$updatePerson = $true`. You will find this boolean value on line 55.
+
 #### Correlation
 
-The `create.ps1` either creates or correlates a HelloID person with a StudyTube account. Correlation is done using a specific ID that is unique within StudyTube. A Student account can only be retrieved/updated/deleted using this ID. The account object returned from Studytube howvever, does contain the `employee number`.
+The `create.ps1` either creates or correlates a HelloID person with a StudyTube account. Correlation is done using a specific ID that is unique within StudyTube. A Student account can only be retrieved/updated/deleted using this ID.
 
 > StudyTube accounts and teams are retrieved using pagination
 
