@@ -67,15 +67,19 @@ try {
     }
     $teamResult = Invoke-RestMethod @splatGetUserParams
 
+    $permissionList = [System.Collections.Generic.List[object]]::new()
     foreach ($team in $teamResult) {
-        @{
-            DisplayName = $team.name
+        $permission = @{
+            DisplayName    = $team.name
             Identification = @{
                 DisplayName = $team.name
-                Reference = $team.id
+                Reference   = $team.id
             }
-        } | Write-Output
+        }
+        $permissionList.Add($permission)
     }
+
+    Write-Output $permissionList | ConvertTo-Json -Depth 10
 } catch {
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or

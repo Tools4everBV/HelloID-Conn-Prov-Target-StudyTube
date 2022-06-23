@@ -51,7 +51,7 @@ try {
     # Add an auditMessage showing what will happen during enforcement
     if ($dryRun -eq $true) {
         $auditLogs.Add([PSCustomObject]@{
-                Message = "Grant StudyTubeV2 entitlement: [$($pRef.Identification.DisplayName)] to: [$($p.DisplayName)] will be executed during enforcement"
+                Message = "Grant StudyTubeV2 entitlement: [$($pRef.DisplayName)] to: [$($p.DisplayName)] will be executed during enforcement"
             })
     }
 
@@ -71,14 +71,14 @@ try {
         $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
         $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-        Write-Verbose "Granting StudyTubeV2 entitlement: [$($pRef.Identification.DisplayName)]"
+        Write-Verbose "Granting StudyTubeV2 entitlement: [$($pRef.DisplayName)] and ID: [$($pRef.Reference)]"
         $splatGrantPermissionParams = @{
-            Uri         = "$($config.BaseUrl)/api/v2/academy-teams/$($pRef.Identification.DisplayName)/users"
+            Uri         = "$($config.BaseUrl)/api/v2/academy-teams/$($pRef.Reference)/users"
             Method      = 'POST'
             Headers     = $headers
             ContentType = 'application/x-www-form-urlencoded'
             Body        = @{
-                academyTeamId = $pRef.Identification.Reference
+                academyTeamId = $pRef.Reference
                 user_id       = $aRef
             }
         }
@@ -86,7 +86,7 @@ try {
         if ($grantPermissionsResponse) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
-                    Message = "Grant StudyTubeV2 entitlement: [$($pRef.Identification.DisplayName)] was successful"
+                    Message = "Grant StudyTubeV2 entitlement: [$($pRef.DisplayName)] was successful"
                     IsError = $false
                 })
         }
@@ -97,9 +97,9 @@ try {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
-        $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.Identification.DisplayName)]. Error: $($errorObj.ErrorMessage)"
+        $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($errorObj.ErrorMessage)"
     } else {
-        $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.Identification.DisplayName)]. Error: $($ex.Exception.Message)"
+        $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
