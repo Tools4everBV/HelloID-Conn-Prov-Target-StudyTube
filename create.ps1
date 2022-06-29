@@ -51,6 +51,9 @@ switch ($($config.IsDebug)) {
     $false { $VerbosePreference = 'SilentlyContinue' }
 }
 
+#set User Page Size
+$userPageSize = $config.userPageSize
+
 # Set to true if accounts in the target system must be updated
 $updatePerson = $false
 
@@ -100,7 +103,7 @@ try {
 
     Write-Verbose 'Retrieving total pages for the user resource'
     $splatResourceTotalParams = @{
-        Uri     = "$($config.BaseUrl)/api/v2/users"
+        Uri     = "$($config.BaseUrl)/api/v2/users?perPage=$userPageSize"
         Method  = 'HEAD'
         Headers = $headers
     }
@@ -113,7 +116,7 @@ try {
     $userList = [System.Collections.Generic.List[Object]]::new()
     do {
         $splatGetUserParams = @{
-            Uri         = "$($config.BaseUrl)/api/v2/users?page=$page"
+            Uri         = "$($config.BaseUrl)/api/v2/users?page=$page&perPage=$userPageSize"
             Method      = 'GET'
             Headers     = $headers
             ContentType = 'application/json'

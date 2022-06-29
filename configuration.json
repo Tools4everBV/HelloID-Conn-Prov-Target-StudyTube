@@ -1,55 +1,66 @@
 [
-    {
-        "key": "ClientId",
-        "type": "input",
-        "defaultValue": "",
-        "templateOptions": {
-            "label": "ClientId",
-            "description": "The ClientId to connect to StudyTube",
-            "required": true
-        }
-    },
-    {
-        "key": "ClientSecret",
-        "type": "input",
-        "defaultValue": "",
-        "templateOptions": {
-            "type": "ClientSecret",
-            "label": "ClientSecret",
-            "description": "The ClientSecret to connect to StudyTube",
-            "required": true
-        }
-    },
-    {
-        "key": "BaseUrl",
-        "type": "input",
-        "defaultValue": "",
-        "templateOptions": {
-            "label": "BaseUrl",
-            "placeholder": "https://public-api.studytube-staging.nl",
-            "description": "The URL to the StudyTube API.",
-            "required": true
-        }
-    },
-    {
-        "key": "TokenUrl",
-        "type": "input",
-        "defaultValue": "",
-        "templateOptions": {
-            "label": "TokenUrl",
-            "placeholder": "https://backend.studytube-staging.nl",
-            "description": "The URL to StudyTube for retrieving the accessToken.",
-            "required": true
-        }
-    },
-    {
-        "key": "IsDebug",
-        "type": "checkbox",
-        "defaultValue": true,
-        "templateOptions": {
-            "label": "Toggle debug logging",
-            "description": "When toggled, debug logging will be displayed",
-            "required": false
-        }
+  {
+    "key": "ClientId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "ClientId",
+      "description": "The ClientId to connect to StudyTube",
+      "required": true
     }
+  },
+  {
+    "key": "ClientSecret",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "type": "password",
+      "label": "ClientSecret",
+      "description": "The ClientSecret to connect to StudyTube",
+      "required": true
+    }
+  },
+  {
+    "key": "BaseUrl",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "BaseUrl",
+      "placeholder": "https://public-api.studytube-staging.nl",
+      "description": "The URL to the StudyTube API.",
+      "required": true
+    }
+  },
+  {
+    "key": "TokenUrl",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "TokenUrl",
+      "placeholder": "https://backend.studytube-staging.nl",
+      "description": "The URL to StudyTube for retrieving the accessToken.",
+      "required": true
+    }
+  },
+  {
+    "key": "IsDebug",
+    "type": "checkbox",
+    "defaultValue": true,
+    "templateOptions": {
+      "label": "Toggle debug logging",
+      "description": "When toggled, debug logging will be displayed",
+      "required": false
+    }
+  },
+  {
+    "key": "UserPageSize",
+    "type": "input",
+    "defaultValue": "25",
+    "templateOptions": {
+      "label": "User Page Size",
+      "placeholder": "25",
+      "description": "Page size for Retrieving users (default: 25)",
+      "required": true
+    }
+  }
 ]
