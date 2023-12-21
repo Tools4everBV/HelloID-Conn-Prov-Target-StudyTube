@@ -138,6 +138,7 @@ function Resolve-HTTPError {
 
 # Begin
 try {
+    $action = "Create"
     Write-Verbose 'Retrieving authorization token'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add("Content-Type", "application/x-www-form-urlencoded")
