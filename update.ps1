@@ -10,13 +10,68 @@ $aRef = $AccountReference | ConvertFrom-Json
 $success = $false
 $auditLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
 
+#region support functions
+function Get-LastName {
+    Param (
+        [object]$person
+    )
+
+    switch ($person.Name.Convention) {
+        'B' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+        'P' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
+            break 
+        }
+        'BP' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName + ' - '
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
+            break 
+        }
+        'PB' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner + ' - '
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+        Default {
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+    } 
+    return $calcFullName
+}
+#endregion support functions
+
 # Account mapping
 $account = @{
     # Mandatory properties
     uid                 = $p.ExternalId
     email               = $p.Accounts.MicrosoftActiveDirectory.mail
-    first_name          = $p.Name.GivenName
-    last_name           = $p.Name.FamilyName
+    first_name          = $p.Name.NickName
+    last_name           = Get-LastName -person $p
 
     # Optional properties
     company_role        = $p.PrimaryContract.Title.Name
@@ -37,8 +92,8 @@ $account = @{
     employee_number     = $p.ExternalId
     address             = ''
     cost_centre         = ''
-    send_invite         = 'false'
-    assign_license      = 'false'
+    send_invite         = 'false'   # send mail on create
+    assign_license      = 'false'   # extra license (content license). Default license is autmaticaly assgined by StudyTube.
     contract_start_date = ''
     contract_end_date   = ''
 }
