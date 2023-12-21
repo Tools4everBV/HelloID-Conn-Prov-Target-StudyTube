@@ -128,7 +128,8 @@ function Resolve-HTTPError {
         }
         if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
@@ -192,9 +193,11 @@ try {
 
     if (-not($responseUser)) {
         $action = 'Create-Correlate'
-    } elseif ($($config.UpdatePersonOnCorrelate -eq "true")) {
+    }
+    elseif ($($config.UpdatePersonOnCorrelate -eq "true")) {
         $action = 'Update-Correlate'
-    } else {
+    }
+    else {
         $action = 'Correlate'
     }
 
@@ -249,14 +252,16 @@ try {
                 IsError = $false
             })
     }
-} catch {
+}
+catch {
     $success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
         $errorMessage = "Could not $action StudyTubeV2 account. Error: $($errorObj.ErrorMessage)"
-    } else {
+    }
+    else {
         $errorMessage = "Could not $action StudyTubeV2 account. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
@@ -264,8 +269,9 @@ try {
             Message = $errorMessage
             IsError = $true
         })
-# End
-} finally {
+    # End
+}
+finally {
     $result = [PSCustomObject]@{
         Success          = $success
         AccountReference = $accountReference
