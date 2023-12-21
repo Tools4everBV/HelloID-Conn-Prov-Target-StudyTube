@@ -69,7 +69,7 @@
     "templateOptions": {
       "label": "User Page Size",
       "placeholder": "25",
-      "description": "Page size for Retrieving users (default: 25)",
+      "description": "Page size for Retrieving users (default: between 25 and 200)",
       "required": true
     }
   }
