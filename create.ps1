@@ -109,9 +109,6 @@ switch ($($config.IsDebug)) {
 #set User Page Size
 $userPageSize = $config.userPageSize
 
-# Set to true if accounts in the target system must be updated
-$updatePerson = $false
-
 #region functions
 function Resolve-HTTPError {
     [CmdletBinding()]
@@ -186,7 +183,7 @@ try {
     $responseUser = $lookupUser[$account.uid]
     if (-not($responseUser)) {
         $action = 'Create-Correlate'
-    } elseif ($updatePerson -eq $true) {
+    } elseif ($($config.UpdatePersonOnCorrelate -eq "true")) {
         $action = 'Update-Correlate'
     } else {
         $action = 'Correlate'

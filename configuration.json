@@ -43,6 +43,16 @@
     }
   },
   {
+    "key": "UpdatePersonOnCorrelate",
+    "type": "checkbox",
+    "defaultValue": false,
+    "templateOptions": {
+      "label": "Update account during correlating",
+      "required": false,
+      "description": "This will update the account in the target application during correlation"
+    }
+  },
+  {
     "key": "IsDebug",
     "type": "checkbox",
     "defaultValue": true,
