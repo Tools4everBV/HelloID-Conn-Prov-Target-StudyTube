@@ -270,6 +270,9 @@ try {
         AccountReference = $accountReference
         Auditlogs        = $auditLogs
         Account          = $account
+        ExportData       = [PSCustomObject]@{
+            id = $accountReference
+        }
     }
     Write-Output $result | ConvertTo-Json -Depth 10
 }
