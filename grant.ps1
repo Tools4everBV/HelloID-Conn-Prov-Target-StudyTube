@@ -87,6 +87,7 @@ try {
         if ($grantPermissionsResponse) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "GrantMembership"
                     Message = "Grant StudyTubeV2 entitlement: [$($pRef.DisplayName)] was successful"
                     IsError = $false
                 })
@@ -106,6 +107,7 @@ catch {
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "GrantMembership"
             Message = $errorMessage
             IsError = $true
         })

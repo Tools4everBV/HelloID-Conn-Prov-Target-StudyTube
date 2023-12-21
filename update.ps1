@@ -171,6 +171,7 @@ try {
         if ($updateUserResponse) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "UpdateAccount"
                     Message = 'Update account was successful'
                     IsError = $false
                 })
@@ -190,6 +191,7 @@ catch {
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "UpdateAccount"
             Message = $errorMessage
             IsError = $true
         })

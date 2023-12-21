@@ -81,6 +81,7 @@ try {
         if ($statusCode -eq 204) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "DeleteAccount"
                     Message = 'Delete account was successful'
                     IsError = $false
                 })
@@ -100,6 +101,7 @@ catch {
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "DeleteAccount"
             Message = $errorMessage
             IsError = $true
         })

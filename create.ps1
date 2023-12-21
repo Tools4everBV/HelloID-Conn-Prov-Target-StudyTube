@@ -248,6 +248,7 @@ try {
 
         $success = $true
         $auditLogs.Add([PSCustomObject]@{
+                Action  = "CreateAccount"
                 Message = "$action account was successful. AccountReference is: [$accountReference]"
                 IsError = $false
             })
@@ -266,6 +267,7 @@ catch {
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "CreateAccount"
             Message = $errorMessage
             IsError = $true
         })

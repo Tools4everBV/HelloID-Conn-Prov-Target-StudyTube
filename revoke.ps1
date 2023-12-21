@@ -92,6 +92,7 @@ try {
             if ($_.Exception.Response.StatusCode -eq 404) {
                 $success = $true
                 $auditLogs.Add([PSCustomObject]@{
+                        Action  = "RevokeMembership"
                         Message = "Revoke StudyTubeV2 entitlement: [$($pRef.Reference)] was successful (already removed)"
                         IsError = $false
                     })
@@ -103,6 +104,7 @@ try {
         if ($statusCode -eq 204) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "RevokeMembership"
                     Message = "Revoke StudyTubeV2 entitlement: [$($pRef.Reference)] was successful"
                     IsError = $false
                 })
@@ -122,6 +124,7 @@ catch {
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "RevokeMembership"
             Message = $errorMessage
             IsError = $true
         })
