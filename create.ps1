@@ -179,8 +179,16 @@ try {
     } until ($page -eq $totalPages)
 
     Write-Verbose "Verify if StudyTube account for: [$($p.DisplayName)] must be created or correlated"
+
+    # In some cases studytube returns the same userid multiple times (exactly the same record).
+    $userList = $userList | Sort-Object id -Unique
+
     $lookupUser = $userList | Group-Object -Property uid -AsHashTable -AsString
     $responseUser = $lookupUser[$account.uid]
+    if (($responseUser | measure-object).Count -gt 1) {
+        Throw "Found multiple user accounts [$($responseUser.email -join ", ")] [$($responseUser.id -join ", ")]"
+    }
+
     if (-not($responseUser)) {
         $action = 'Create-Correlate'
     } elseif ($($config.UpdatePersonOnCorrelate -eq "true")) {
