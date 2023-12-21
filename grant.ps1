@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-Grant
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $config = $configuration | ConvertFrom-Json
