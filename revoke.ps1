@@ -83,7 +83,23 @@ try {
                 user_id       = $aRef
             }
         }
-        $null = Invoke-RestMethod @splatRevokePermissionParams -StatusCodeVariable statusCode -verbose:$false
+        
+        try {
+            $null = Invoke-RestMethod @splatRevokePermissionParams -StatusCodeVariable statusCode -verbose:$false
+        }
+        catch {
+            # A '404'NotFound is returned if the entity cannot be found
+            if ($_.Exception.Response.StatusCode -eq 404) {
+                $success = $true
+                $auditLogs.Add([PSCustomObject]@{
+                        Message = "Revoke StudyTubeV2 entitlement: [$($pRef.Reference)] was successful (already removed)"
+                        IsError = $false
+                    })
+            }
+            else {
+                throw
+            }
+        }
         if ($statusCode -eq 204) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
