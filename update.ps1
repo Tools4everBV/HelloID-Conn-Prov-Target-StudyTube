@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Update
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $config = $configuration | ConvertFrom-Json
@@ -10,13 +10,68 @@ $aRef = $AccountReference | ConvertFrom-Json
 $success = $false
 $auditLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
 
+#region support functions
+function Get-LastName {
+    Param (
+        [object]$person
+    )
+
+    switch ($person.Name.Convention) {
+        'B' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+        'P' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
+            break 
+        }
+        'BP' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName + ' - '
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
+            break 
+        }
+        'PB' { 
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner + ' - '
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+        Default {
+            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
+                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
+            }
+            $calcFullName = $calcFullName + $person.Name.FamilyName
+            break 
+        }
+    } 
+    return $calcFullName
+}
+#endregion support functions
+
 # Account mapping
 $account = @{
     # Mandatory properties
     uid                 = $p.ExternalId
     email               = $p.Accounts.MicrosoftActiveDirectory.mail
-    first_name          = $p.Name.GivenName
-    last_name           = $p.Name.FamilyName
+    first_name          = $p.Name.NickName
+    last_name           = Get-LastName -person $p
 
     # Optional properties
     company_role        = $p.PrimaryContract.Title.Name
@@ -37,8 +92,8 @@ $account = @{
     employee_number     = $p.ExternalId
     address             = ''
     cost_centre         = ''
-    send_invite         = 'false'
-    assign_license      = 'false'
+    send_invite         = 'false'   # send mail on create
+    assign_license      = 'false'   # extra license (content license). Default license is autmaticaly assgined by StudyTube.
     contract_start_date = ''
     contract_end_date   = ''
 }
@@ -71,7 +126,8 @@ function Resolve-HTTPError {
         }
         if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
@@ -115,27 +171,32 @@ try {
         if ($updateUserResponse) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "UpdateAccount"
                     Message = 'Update account was successful'
                     IsError = $false
                 })
         }
     }
-} catch {
+}
+catch {
     $success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
         $errorMessage = "Could not update StudyTubeV2 account. Error: $($errorObj.ErrorMessage)"
-    } else {
+    }
+    else {
         $errorMessage = "Could not update StudyTubeV2 account. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "UpdateAccount"
             Message = $errorMessage
             IsError = $true
         })
-} finally {
+}
+finally {
     $result = [PSCustomObject]@{
         Success   = $success
         Account   = $account

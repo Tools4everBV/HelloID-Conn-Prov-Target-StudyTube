@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Delete
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $config = $configuration | ConvertFrom-Json
@@ -38,7 +38,8 @@ function Resolve-HTTPError {
         }
         if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
@@ -80,27 +81,32 @@ try {
         if ($statusCode -eq 204) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "DeleteAccount"
                     Message = 'Delete account was successful'
                     IsError = $false
                 })
         }
     }
-} catch {
+}
+catch {
     $success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
         $errorMessage = "Could not delete StudyTubeV2 account. Error: $($errorObj.ErrorMessage)"
-    } else {
+    }
+    else {
         $errorMessage = "Could not delete StudyTubeV2 account. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "DeleteAccount"
             Message = $errorMessage
             IsError = $true
         })
-} finally {
+}
+finally {
     $result = [PSCustomObject]@{
         Success   = $success
         Auditlogs = $auditLogs

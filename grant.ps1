@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-Grant
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $config = $configuration | ConvertFrom-Json
@@ -39,7 +39,8 @@ function Resolve-HTTPError {
         }
         if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
@@ -86,27 +87,32 @@ try {
         if ($grantPermissionsResponse) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "GrantMembership"
                     Message = "Grant StudyTubeV2 entitlement: [$($pRef.DisplayName)] was successful"
                     IsError = $false
                 })
         }
     }
-} catch {
+}
+catch {
     $success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
         $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($errorObj.ErrorMessage)"
-    } else {
+    }
+    else {
         $errorMessage = "Could not grant StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "GrantMembership"
             Message = $errorMessage
             IsError = $true
         })
-} finally {
+}
+finally {
     $result = [PSCustomObject]@{
         Success   = $success
         Auditlogs = $auditLogs

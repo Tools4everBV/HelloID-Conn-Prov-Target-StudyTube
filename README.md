@@ -2,7 +2,7 @@
 
 
 | :information_source: Information |
-|:---------------------------|
+| :--------------------------------|
 | This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements. |
 <br />
 <p align="center"> 
@@ -11,23 +11,27 @@
 
 ## Table of contents
 
-- [Introduction](#Introduction)
-- [Getting started](#Getting-started)
-  + [Connection settings](#Connection-settings)
-  + [Prerequisites](#Prerequisites)
-  + [Remarks](#Remarks)
-- [Setup the connector](@Setup-The-Connector)
-- [Getting help](#Getting-help)
-- [HelloID Docs](#HelloID-docs)
+- [HelloID-Conn-Prov-Target-StudyTubeV2](#helloid-conn-prov-target-studytubev2)
+  - [Table of contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Getting started](#getting-started)
+    - [Connection settings](#connection-settings)
+    - [Prerequisites](#prerequisites)
+    - [Remarks](#remarks)
+      - [Creation / correlation process](#creation--correlation-process)
+      - [Correlation](#correlation)
+  - [Setup the connector](#setup-the-connector)
+  - [Getting help](#getting-help)
+  - [HelloID docs](#helloid-docs)
 
 ## Introduction
 
 _HelloID-Conn-Prov-Target-StudyTubeV2_ is a _target_ connector. StudyTube provides a set of REST API's that allow you to programmatically interact with it's data. The HelloID connector uses the API endpoints listed in the table below.
 
-| Endpoint     | Description |
-| ------------ | ----------- |
-| /Users       | Create/Update/Delete users |
-| /Teams       | Manage team permissions |
+| Endpoint | Description                |
+| -------- | -------------------------- |
+| /Users   | Create/Update/Delete users |
+| /Teams   | Manage team permissions    |
 
 ## Getting started
 
@@ -37,13 +41,15 @@ _HelloID-Conn-Prov-Target-StudyTubeV2_ is a _target_ connector. StudyTube provid
 
 The following settings are required to connect to the API.
 
-| Setting      | Description                        | Mandatory   |
-| ------------ | -----------                        | ----------- |
-| CLientId     | The CLientId to connect to StudyTube | Yes        |
-| ClientSecret | The ClientSecret to connect to StudyTube  | Yes        |
-| BaseUrl      | The URL to the StudyTube API.| Yes        |
-| TokenUrl     | The URL to StudyTube for retrieving the accessToken. | Yes        |
-| IsDebug      | When toggled, debug logging will be displayed | No         |
+| Setting                 | Description                                                                                     | Mandatory |
+| ----------------------- | ----------------------------------------------------------------------------------------------- | --------- |
+| CLientId                | The CLientId to connect to StudyTube                                                            | Yes       |
+| ClientSecret            | The ClientSecret to connect to StudyTube                                                        | Yes       |
+| BaseUrl                 | The URL to the StudyTube API.                                                                   | Yes       |
+| TokenUrl                | The URL to StudyTube for retrieving the accessToken.                                            | Yes       |
+| UpdatePersonOnCorrelate | This will update the account in the target application during correlation                       | No        |
+| IsDebug                 | When toggled, debug logging will be displayed                                                   | No        |
+| UserPageSize            | Default 25. If you encounter problems with to many request try a highter value, for example 200 | Yes       |
 
 ### Prerequisites
 
@@ -53,7 +59,7 @@ The following settings are required to connect to the API.
 
 Normally, the connector will verify if an account must be either created or -if an existing account is found- correlated. A new functionality is the possibility to update the account in the target system during the correlation process. Default this behavior is disabled. Meaning, the account will only be created or correlated.
 
-You can change this behaviour in the `create.ps1` by setting the following boolean value to true: `$updatePerson = $true`. You will find this boolean value on line 55.
+You can change this behavior by adjusting the updatePersonOnCorrelate within the configuration
 
 #### Correlation
 

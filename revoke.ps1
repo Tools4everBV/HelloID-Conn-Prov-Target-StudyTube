@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-Revoke
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $config = $configuration | ConvertFrom-Json
@@ -39,7 +39,8 @@ function Resolve-HTTPError {
         }
         if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
@@ -73,40 +74,62 @@ try {
 
         Write-Verbose "Revoking StudyTubeV2 entitlement: [$($pRef.DisplayName)]"
         $splatRevokePermissionParams = @{
-            Uri     = "$($config.BaseUrl)/api/v2/academy-teams/$($pRef.Reference)/users"
-            Method  = 'DELETE'
-            Headers = $headers
+            Uri         = "$($config.BaseUrl)/api/v2/academy-teams/$($pRef.Reference)/users"
+            Method      = 'DELETE'
+            Headers     = $headers
             ContentType = 'application/x-www-form-urlencoded'
             Body        = @{
                 academyTeamId = $pRef.Reference
                 user_id       = $aRef
             }
         }
-        $null = Invoke-RestMethod @splatRevokePermissionParams -StatusCodeVariable statusCode -verbose:$false
+        
+        try {
+            $null = Invoke-RestMethod @splatRevokePermissionParams -StatusCodeVariable statusCode -verbose:$false
+        }
+        catch {
+            # A '404'NotFound is returned if the entity cannot be found
+            if ($_.Exception.Response.StatusCode -eq 404) {
+                $success = $true
+                $auditLogs.Add([PSCustomObject]@{
+                        Action  = "RevokeMembership"
+                        Message = "Revoke StudyTubeV2 entitlement: [$($pRef.Reference)] was successful (already removed)"
+                        IsError = $false
+                    })
+            }
+            else {
+                throw
+            }
+        }
         if ($statusCode -eq 204) {
             $success = $true
             $auditLogs.Add([PSCustomObject]@{
+                    Action  = "RevokeMembership"
                     Message = "Revoke StudyTubeV2 entitlement: [$($pRef.Reference)] was successful"
                     IsError = $false
                 })
         }
     }
-} catch {
+}
+catch {
     $success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-HTTPError -ErrorObject $ex
         $errorMessage = "Could not revoke StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($errorObj.ErrorMessage)"
-    } else {
+    }
+    else {
         $errorMessage = "Could not revoke StudyTubeV2 entitlement: [$($pRef.DisplayName)]. Error: $($ex.Exception.Message)"
     }
     Write-Verbose $errorMessage
     $auditLogs.Add([PSCustomObject]@{
+            Action  = "RevokeMembership"
             Message = $errorMessage
             IsError = $true
         })
-} finally {
+}
+finally {
     $result = [PSCustomObject]@{
         Success   = $success
         Auditlogs = $auditLogs
