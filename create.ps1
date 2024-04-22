@@ -1,116 +1,13 @@
-#####################################################
-# HelloID-Conn-Prov-Target-StudyTubeV2-Create
-#
-# Version: 1.1.0
-#####################################################
-# Initialize default values
-$config = $configuration | ConvertFrom-Json
-$p = $person | ConvertFrom-Json
-$success = $false
-$auditLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
-
-#region support functions
-function Get-LastName {
-    Param (
-        [object]$person
-    )
-
-    switch ($person.Name.Convention) {
-        'B' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-        'P' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
-            break 
-        }
-        'BP' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName + ' - '
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
-            break 
-        }
-        'PB' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner + ' - '
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-        Default {
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-    } 
-    return $calcFullName
-}
-#endregion support functions
-
-# Account mapping
-$account = @{
-    # Mandatory properties
-    uid                 = $p.ExternalId
-    email               = $p.Accounts.MicrosoftActiveDirectory.mail
-    first_name          = $p.Name.NickName
-    last_name           = Get-LastName -person $p
-
-    # Optional properties
-    company_role        = $p.PrimaryContract.Title.Name
-
-    # Available: en,nl,fi,fr,es,de,pt,pl
-    language            = 'nl'
-    phone_number        = $p.Contact.Business.Phone.Fixed
-    linkedin_url        = ''
-
-    # Avatar must be a png,jpg,jpeg file. Max 20MB
-    avatar              = ''
-    gender              = ''
-    date_of_birth       = $p.Details.BirthDate
-    house_number        = ''
-    postal_code         = ''
-    city                = ''
-    place_of_birth      = ''
-    employee_number     = $p.ExternalId
-    address             = ''
-    cost_centre         = ''
-    send_invite         = 'false'   # send mail on create
-    assign_license      = 'false'   # extra license (content license). Default license is autmaticaly assgined by StudyTube.
-    contract_start_date = ''
-    contract_end_date   = ''
-}
+#################################################
+# HelloID-Conn-Prov-Target-StudyTube-Create
+# PowerShell V2
+#################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
-# Set debug logging
-switch ($($config.IsDebug)) {
-    $true { $VerbosePreference = 'Continue' }
-    $false { $VerbosePreference = 'SilentlyContinue' }
-}
-
-#set User Page Size
-$userPageSize = $config.userPageSize
-
 #region functions
-function Resolve-HTTPError {
+function Resolve-StudyTubeError {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory,
@@ -137,151 +34,131 @@ function Resolve-HTTPError {
 }
 #endregion
 
-# Begin
 try {
-    $action = "Create"
-    Write-Verbose 'Retrieving authorization token'
-    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add("Content-Type", "application/x-www-form-urlencoded")
-    $tokenBody = @{
-        client_id     = $($config.ClientId)
-        client_secret = $($config.ClientSecret)
-        grant_type    = 'client_credentials'
-        scope         = 'read write'
-    }
-    $tokenResponse = Invoke-RestMethod -Uri "$($config.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    # Initial Assignments
+    $outputContext.AccountReference = 'Currently not available'
 
-    Write-Verbose 'Setting authorization header'
-    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
+    # Validate correlation configuration
+    if ($actionContext.CorrelationConfiguration.Enabled) {
+        $correlationField = $actionContext.CorrelationConfiguration.personField
+        $correlationValue = $actionContext.CorrelationConfiguration.personFieldValue
 
-    Write-Verbose 'Retrieving total pages for the user resource'
-    $splatResourceTotalParams = @{
-        Uri     = "$($config.BaseUrl)/api/v2/users?perPage=$userPageSize"
-        Method  = 'HEAD'
-        Headers = $headers
-    }
-    $null = Invoke-RestMethod @splatResourceTotalParams -ResponseHeadersVariable responseHeaders -verbose:$false
-
-    # Verify if a user must be either [created and correlated], [updated and correlated] or just [correlated]
-    Write-Verbose 'Retrieving all users from StudyTube'
-    $page = 0
-    $totalPages = $responseHeaders.'X-Total-Pages'[0] -as [int]
-    $userList = [System.Collections.Generic.List[Object]]::new()
-    do {
-        $splatGetUserParams = @{
-            Uri         = "$($config.BaseUrl)/api/v2/users?page=$page&perPage=$userPageSize"
-            Method      = 'GET'
-            Headers     = $headers
-            ContentType = 'application/json'
+        if ([string]::IsNullOrEmpty($($correlationField))) {
+            throw 'Correlation is enabled but not configured correctly'
         }
-        $userResult = Invoke-RestMethod @splatGetUserParams
-        $userList.AddRange($userResult)
-        $page++
-    } until ($page -eq $totalPages)
+        if ([string]::IsNullOrEmpty($($correlationValue))) {
+            throw 'Correlation is enabled but [personFieldValue] is empty. Please make sure it is correctly mapped'
+        }
 
-    Write-Verbose "Verify if StudyTube account for: [$($p.DisplayName)] must be created or correlated"
+        Write-Information 'Retrieving authorization token'
+        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $headers.Add("Content-Type", "application/x-www-form-urlencoded")
+        $tokenBody = @{
+            client_id     = $($actionContext.Configuration.ClientId)
+            client_secret = $($actionContext.Configuration.ClientSecret)
+            grant_type    = 'client_credentials'
+            scope         = 'read write'
+        }
+        $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
 
-    # In some cases studytube returns the same userid multiple times (exactly the same record).
-    $userList = $userList | Sort-Object id -Unique
+        Write-Information 'Setting authorization header'
+        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-    $lookupUser = $userList | Group-Object -Property uid -AsHashTable -AsString
-    $responseUser = $lookupUser[$account.uid]
-    if (($responseUser | measure-object).Count -gt 1) {
-        Throw "Found multiple user accounts [$($responseUser.email -join ", ")] [$($responseUser.id -join ", ")]"
+        Write-Information 'Retrieving total pages for the user resource'
+        $splatResourceTotalParams = @{
+            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users?perPage=$($actionContext.Configuration.PageSize)"
+            Method  = 'HEAD'
+            Headers = $headers
+        }
+        $null = Invoke-RestMethod @splatResourceTotalParams -ResponseHeadersVariable responseHeaders -verbose:$false
+
+        Write-Information 'Retrieving all users from StudyTube'
+        $page = 0
+        $totalPages = $responseHeaders.'X-Total-Pages'[0] -as [int]
+        $userList = [System.Collections.Generic.List[Object]]::new()
+        do {
+            $splatGetUserParams = @{
+                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users?page=$page&perPage=$($actionContext.Configuration.PageSize)"
+                Method      = 'GET'
+                Headers     = $headers
+            }
+            $userResult = Invoke-RestMethod @splatGetUserParams
+            $userList.AddRange($userResult)
+            $page++
+        } until ($page -eq $totalPages)
+
+        # In some cases studytube returns the same userid multiple times (exactly the same record).
+        $userListSorted = $userList | Sort-Object id -Unique
+
+        $lookupUser = $userListSorted | Group-Object -Property uuid -AsHashTable -AsString
+        $correlatedAccount = $lookupUser[$($correlationValue)]
+        if (($correlatedAccount | measure-object).Count -gt 1) {
+            throw "Found multiple user accounts [$($correlatedAccount.email -join ", ")] [$($correlatedAccount.id -join ", ")]"
+        }
     }
 
-    if (-not($responseUser)) {
-        $action = 'Create-Correlate'
-    }
-    elseif ($($config.UpdatePersonOnCorrelate -eq "true")) {
-        $action = 'Update-Correlate'
-    }
-    else {
-        $action = 'Correlate'
+    if ($null -ne $correlatedAccount) {
+        $action = 'CorrelateAccount'
+    } else {
+        $action = 'CreateAccount'
     }
 
-    # Add an auditMessage showing what will happen during enforcement
-    if ($dryRun -eq $true) {
-        $auditLogs.Add([PSCustomObject]@{
-                Message = "$action StudyTubeV2 account for: [$($p.DisplayName)], will be executed during enforcement"
-            })
+    # Add a message and the result of each of the validations showing what will happen during enforcement
+    if ($actionContext.DryRun -eq $true) {
+        Write-Information "[DryRun] $action StudyTube account for: [$($personContext.Person.DisplayName)], will be executed during enforcement"
     }
 
     # Process
-    if (-not($dryRun -eq $true)) {
+    if (-not($actionContext.DryRun -eq $true)) {
         switch ($action) {
-            'Create-Correlate' {
-                Write-Verbose "Creating and correlating StudyTubeV2 account"
+            'CreateAccount' {
+                Write-Information 'Creating and correlating StudyTube account'
                 $splatCreateUserParams = @{
-                    Uri         = "$($config.BaseUrl)/api/v2/users"
+                    Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
                     Method      = 'POST'
                     Headers     = $headers
                     ContentType = 'application/x-www-form-urlencoded'
-                    Body        = $account
+                    Body        = $actionContext.Data
                 }
-                $createUserResponse = Invoke-RestMethod @splatCreateUserParams -verbose:$false
-                $accountReference = $createUserResponse.id
+                $createdAccount = Invoke-RestMethod @splatCreateUserParams -verbose:$false
+                $outputContext.Data = $createdAccount
+                $outputContext.AccountReference = $createdAccount.id
+                $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)"
                 break
             }
 
-            'Update-Correlate' {
-                Write-Verbose "Updating and correlating StudyTubeV2 account"
-                $splatUpdateUserParams = @{
-                    Uri         = "$($config.BaseUrl)/api/v2/users/$($responseUser.Id)"
-                    Method      = 'PUT'
-                    Headers     = $headers
-                    ContentType = 'application/x-www-form-urlencoded'
-                    Body        = $account
-                }
-                $updateUserResponse = Invoke-RestMethod @splatUpdateUserParams -verbose:$false
-                $accountReference = $updateUserResponse.id
-                break
-            }
-
-            'Correlate' {
-                Write-Verbose "Correlating StudyTube account for: [$($p.DisplayName)]"
-                $accountReference = $responseUser.id
+            'CorrelateAccount' {
+                Write-Information 'Correlating StudyTube account'
+                $outputContext.Data = $correlatedAccount
+                $outputContext.AccountReference = $correlatedAccount.id
+                $outputContext.AccountCorrelated = $true
+                $auditLogMessage = "Correlated account: [$($correlatedAccount.id)] on field: [$($correlationField)] with value: [$($correlationValue)]"
                 break
             }
         }
 
-        $success = $true
-        $auditLogs.Add([PSCustomObject]@{
-                Action  = "CreateAccount"
-                Message = "$action account was successful. AccountReference is: [$accountReference]"
+        $outputContext.success = $true
+        $outputContext.AuditLogs.Add([PSCustomObject]@{
+                Action  = $action
+                Message = $auditLogMessage
                 IsError = $false
             })
     }
-}
-catch {
-    $success = $false
+} catch {
+    $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-        $errorObj = Resolve-HTTPError -ErrorObject $ex
-        $errorMessage = "Could not $action StudyTubeV2 account. Error: $($errorObj.ErrorMessage)"
+        $errorObj = Resolve-StudyTubeError -ErrorObject $ex
+        $auditMessage = "Could not create or correlate StudyTube account. Error: $($errorObj.FriendlyMessage)"
+        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+    } else {
+        $auditMessage = "Could not create or correlate StudyTube account. Error: $($ex.Exception.Message)"
+        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
-    else {
-        $errorMessage = "Could not $action StudyTubeV2 account. Error: $($ex.Exception.Message)"
-    }
-    Write-Verbose $errorMessage
-    $auditLogs.Add([PSCustomObject]@{
-            Action  = "CreateAccount"
-            Message = $errorMessage
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Message = $auditMessage
             IsError = $true
         })
-    # End
-}
-finally {
-    $result = [PSCustomObject]@{
-        Success          = $success
-        AccountReference = $accountReference
-        Auditlogs        = $auditLogs
-        Account          = $account
-        ExportData       = [PSCustomObject]@{
-            id = $accountReference
-        }
-    }
-    Write-Output $result | ConvertTo-Json -Depth 10
 }
