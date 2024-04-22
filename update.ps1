@@ -1,114 +1,13 @@
-#####################################################
-# HelloID-Conn-Prov-Target-StudyTubeV2-Update
-#
-# Version: 1.1.0
-#####################################################
-# Initialize default values
-$config = $configuration | ConvertFrom-Json
-$p = $person | ConvertFrom-Json
-$aRef = $AccountReference | ConvertFrom-Json
-$success = $false
-$auditLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
-
-#region support functions
-function Get-LastName {
-    Param (
-        [object]$person
-    )
-
-    switch ($person.Name.Convention) {
-        'B' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-        'P' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
-            break 
-        }
-        'BP' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName + ' - '
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner
-            break 
-        }
-        'PB' { 
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePartnerPrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePartnerPrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyNamePartner + ' - '
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-        Default {
-            if (-not [string]::IsNullOrEmpty($person.Name.familyNamePrefix)) {
-                $calcFullName = $calcFullName + $person.Name.familyNamePrefix + ' '
-            }
-            $calcFullName = $calcFullName + $person.Name.FamilyName
-            break 
-        }
-    } 
-    return $calcFullName
-}
-#endregion support functions
-
-# Account mapping
-$account = @{
-    # Mandatory properties
-    uid                 = $p.ExternalId
-    email               = $p.Accounts.MicrosoftActiveDirectory.mail
-    first_name          = $p.Name.NickName
-    last_name           = Get-LastName -person $p
-
-    # Optional properties
-    company_role        = $p.PrimaryContract.Title.Name
-
-    # Available: en,nl,fi,fr,es,de,pt,pl
-    language            = 'nl'
-    phone_number        = $p.Contact.Business.Phone.Fixed
-    linkedin_url        = ''
-
-    # Avatar must be a png,jpg,jpeg file. Max 20MB
-    avatar              = ''
-    gender              = ''
-    date_of_birth       = $p.Details.BirthDate
-    house_number        = ''
-    postal_code         = ''
-    city                = ''
-    place_of_birth      = ''
-    employee_number     = $p.ExternalId
-    address             = ''
-    cost_centre         = ''
-    send_invite         = 'false'   # send mail on create
-    assign_license      = 'false'   # extra license (content license). Default license is autmaticaly assgined by StudyTube.
-    contract_start_date = ''
-    contract_end_date   = ''
-}
+#################################################
+# HelloID-Conn-Prov-Target-StudyTube-Update
+# PowerShell V2
+#################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
-# Set debug logging
-switch ($($config.IsDebug)) {
-    $true { $VerbosePreference = 'Continue' }
-    $false { $VerbosePreference = 'SilentlyContinue' }
-}
-
 #region functions
-function Resolve-HTTPError {
+function Resolve-StudyTubeError {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory,
@@ -136,71 +35,130 @@ function Resolve-HTTPError {
 #endregion
 
 try {
-    # Add an auditMessage showing what will happen during enforcement
-    if ($dryRun -eq $true) {
-        $auditLogs.Add([PSCustomObject]@{
-                Message = "Update StudyTubeV2 account for: [$($p.DisplayName)] will be executed during enforcement"
-            })
+    # Verify if [aRef] has a value
+    if ([string]::IsNullOrEmpty($($actionContext.References.Account))) {
+        throw 'The account reference could not be found'
     }
 
-    if (-not($dryRun -eq $true)) {
-        Write-Verbose 'Retrieving authorization token'
-        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-        $headers.Add("Content-Type", "application/x-www-form-urlencoded")
-        $tokenBody = @{
-            client_id     = $($config.ClientId)
-            client_secret = $($config.ClientSecret)
-            grant_type    = 'client_credentials'
-            scope         = 'read write'
-        }
-        $tokenResponse = Invoke-RestMethod -Uri "$($config.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    Write-Information 'Retrieving authorization token'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add("Content-Type", "application/x-www-form-urlencoded")
+    $tokenBody = @{
+        client_id     = $($actionContext.Configuration.ClientId)
+        client_secret = $($actionContext.Configuration.ClientSecret)
+        grant_type    = 'client_credentials'
+        scope         = 'read write'
+    }
+    $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
 
-        Write-Verbose 'Setting authorization header'
-        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-        $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
+    Write-Information 'Setting authorization header'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-        Write-Verbose 'Updating StudyTubeV2 account'
-        $splatUpdateUserParams = @{
-            Uri         = "$($config.BaseUrl)/api/v2/users/$aRef"
-            Method      = 'PUT'
-            Headers     = $headers
-            ContentType = 'application/x-www-form-urlencoded'
-            Body        = $account
+    Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
+    try {
+        $splatGetUserParams = @{
+            Uri     = "$($actionContext.actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+            Method  = 'GET'
+            Headers = $headers
         }
-        $updateUserResponse = Invoke-RestMethod @splatUpdateUserParams -verbose:$false
-        if ($updateUserResponse) {
-            $success = $true
-            $auditLogs.Add([PSCustomObject]@{
-                    Action  = "UpdateAccount"
-                    Message = 'Update account was successful'
+        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
+        $outputContext.PreviousData = $correlatedAccount
+    } catch {
+        if ($_.Exception.Response.StatusCode -eq 404){
+            $action = 'NotFound'
+        } else {
+            throw $_
+        }
+    }
+
+    # Always compare the account against the current account in target system
+    if ($null -ne $correlatedAccount) {
+        $desiredAccount = [PSCustomObject]$actionContext.Data
+        $splatCompareProperties = @{
+            ReferenceObject  = @($correlatedAccount.PSObject.Properties)
+            DifferenceObject = @($desiredAccount.PSObject.Properties)
+        }
+        $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
+        if ($propertiesChanged) {
+            $action = 'UpdateAccount'
+            $dryRunMessage = "Account property(s) required to update: $($propertiesChanged.Name -join ', ')"
+
+            $changedPropertiesObject = @{}
+            foreach ($property in $propertiesChanged) {
+                $propertyName = $property.Name
+                $propertyValue = $account.$propertyName
+                $changedPropertiesObject.$propertyName = $propertyValue
+            }
+        } else {
+            $action = 'NoChanges'
+            $dryRunMessage = 'No changes will be made to the account during enforcement'
+        }
+    } else {
+        $action = 'NotFound'
+        $dryRunMessage = "StudyTube account for: [$($personContext.Person.DisplayName)] not found. Possibly deleted."
+    }
+
+    # Add a message and the result of each of the validations showing what will happen during enforcement
+    if ($actionContext.DryRun -eq $true) {
+        Write-Information "[DryRun] $dryRunMessage"
+    }
+
+    # Process
+    if (-not($actionContext.DryRun -eq $true)) {
+        switch ($action) {
+            'UpdateAccount' {
+                Write-Information "Updating StudyTube account with accountReference: [$($actionContext.References.Account)]"
+                $splatUpdateUserParams = @{
+                    Uri         = "$($actionContext.actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+                    Method      = 'PUT'
+                    Headers     = $headers
+                    ContentType = 'application/x-www-form-urlencoded'
+                    Body        = $changedPropertiesObject
+                }
+                $null = Invoke-RestMethod @splatUpdateUserParams -verbose:$false
+                $outputContext.Success = $true
+                $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "Update account was successful, Account property(s) updated: [$($propertiesChanged.name -join ',')]"
                     IsError = $false
                 })
+                break
+            }
+
+            'NoChanges' {
+                Write-Information "No changes to StudyTube account with accountReference: [$($actionContext.References.Account)]"
+                $outputContext.Success = $true
+                $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = 'No changes will be made to the account during enforcement'
+                    IsError = $false
+                })
+                break
+            }
+
+            'NotFound' {
+                $outputContext.Success  = $false
+                $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "StudyTube account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
+                    IsError = $true
+                })
+                break
+            }
         }
     }
-}
-catch {
-    $success = $false
+} catch {
+    $outputContext.Success  = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-        $errorObj = Resolve-HTTPError -ErrorObject $ex
-        $errorMessage = "Could not update StudyTubeV2 account. Error: $($errorObj.ErrorMessage)"
+        $errorObj = Resolve-StudyTubeError -ErrorObject $ex
+        $auditMessage = "Could not update StudyTube account. Error: $($errorObj.FriendlyMessage)"
+        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+    } else {
+        $auditMessage = "Could not update StudyTube account. Error: $($ex.Exception.Message)"
+        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
-    else {
-        $errorMessage = "Could not update StudyTubeV2 account. Error: $($ex.Exception.Message)"
-    }
-    Write-Verbose $errorMessage
-    $auditLogs.Add([PSCustomObject]@{
-            Action  = "UpdateAccount"
-            Message = $errorMessage
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Message = $auditMessage
             IsError = $true
         })
-}
-finally {
-    $result = [PSCustomObject]@{
-        Success   = $success
-        Account   = $account
-        Auditlogs = $auditLogs
-    }
-    Write-Output $result | ConvertTo-Json -Depth 10
 }

@@ -1,0 +1,173 @@
+{
+  "Version": "v1",
+  "MappingFields": [
+    {
+      "Name": "email",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"function getActiveDirectoryEmail(){\\n  return Person.Accounts.MicrosoftActiveDirectory.mail\\n}\\ngetActiveDirectoryEmail();\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "first_name",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.NickName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "last_name",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"function GetLastName(person) {\\n    let calcFullName = \\\"\\\";\\n\\n    switch (person.Name.Convention) {\\n        case 'B':\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n        case 'P':\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner;\\n            break;\\n        case 'BP':\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName + ' - ';\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner;\\n            break;\\n        case 'PB':\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner + ' - ';\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n        default:\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n    }\\n\\n    return calcFullName;\\n}\\n\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "company_role",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Title.Name\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "phone_number",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Contact.Business.Phone.Fixed\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "employee_number",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "uuid",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "assign_license",
+      "Description": "Extra license (content license). Default license is automatically assigned by StudyTube.",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create"
+          ],
+          "MappingMode": "Fixed",
+          "Value": "\"false\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "send_invite",
+      "Description": "Send mail on create",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create"
+          ],
+          "MappingMode": "Fixed",
+          "Value": "\"false\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "language",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create"
+          ],
+          "MappingMode": "Fixed",
+          "Value": "\"nl\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    }
+  ],
+  "UniqueFieldNames": []
+}
