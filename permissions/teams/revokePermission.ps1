@@ -59,12 +59,11 @@ try {
     Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
     try {
         $splatGetUserParams = @{
-            Uri     = "$($actionContext.actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
             Method  = 'GET'
             Headers = $headers
         }
         $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
-        $outputContext.PreviousData = $correlatedAccount
     } catch {
         if ($_.Exception.Response.StatusCode -eq 404){
             $action = 'NotFound'
@@ -97,8 +96,7 @@ try {
                     Headers     = $headers
                     ContentType = 'application/x-www-form-urlencoded'
                     Body        = @{
-                        academyTeamId = $actionContext.References.Permission.Reference
-                        user_id       = $actionContext.References.Account
+                        user_id = $actionContext.References.Account
                     }
                 }
                 $null = Invoke-RestMethod @splatRevokePermissionParams -verbose:$false
