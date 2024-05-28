@@ -1,7 +1,8 @@
-####################################################################
+#####################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-DynamicPermission
-# PowerShell V2
-####################################################################
+#
+# Version: 1.1.0
+#####################################################
 
 $currentPermissions = @{}
 foreach ($permission in $actionContext.CurrentPermissions) {
@@ -158,9 +159,8 @@ try {
     $newCurrentPermissions = @{}
     foreach ($permission in $currentPermissions.GetEnumerator()) {
         if (-Not $desiredPermissions.ContainsKey($permission.Name) -AND $permission.Name -ne "No Teams Defined") {
-            # Revoke AD Groupmembership
             try {
-                if ($dryRun -eq $false) {
+                if (-not($actionContext.DryRun -eq $true)) {
                     Write-Verbose "Revoking StudyTubeV2 entitlement: [($($permission.Value))] [$($permission.Name)] for user: [$($actionContext.References.Account)]"
 
                     $splatRevokePermissionParams = @{
