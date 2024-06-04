@@ -65,33 +65,17 @@ try {
         $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
         $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-        Write-Information 'Retrieving total pages for the user resource'
-        $splatResourceTotalParams = @{
-            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users?perPage=$($actionContext.Configuration.PageSize)"
-            Method  = 'HEAD'
-            Headers = $headers
-        }
-        $null = Invoke-RestMethod @splatResourceTotalParams -ResponseHeadersVariable responseHeaders -verbose:$false
-
         Write-Information 'Retrieving all users from StudyTube'
-        $page = 0
-        $totalPages = $responseHeaders.'X-Total-Pages'[0] -as [int]
-        $userList = [System.Collections.Generic.List[Object]]::new()
-        do {
-            $splatGetUserParams = @{
-                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users?page=$page&perPage=$($actionContext.Configuration.PageSize)"
-                Method      = 'GET'
-                Headers     = $headers
-            }
-            $userResult = Invoke-RestMethod @splatGetUserParams
-            $userList.AddRange($userResult)
-            $page++
-        } until ($page -eq $totalPages)
+        $splatGetUserParams = @{
+            Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
+            Method      = 'GET'
+            Headers     = $headers
+        }
+        $userResult = Invoke-RestMethod @splatGetUserParams
 
         # In some cases studytube returns the same userid multiple times (exactly the same record).
-        $userListSorted = $userList | Sort-Object id -Unique
-
-        $lookupUser = $userListSorted | Group-Object -Property uuid -AsHashTable -AsString
+        $userListSorted = $userResult | Sort-Object -Property id -Unique
+        $lookupUser = $userListSorted | Group-Object -Property uid -AsHashTable -AsString
         $correlatedAccount = $lookupUser[$($correlationValue)]
         if (($correlatedAccount | measure-object).Count -gt 1) {
             throw "Found multiple user accounts [$($correlatedAccount.email -join ", ")] [$($correlatedAccount.id -join ", ")]"
