@@ -164,7 +164,7 @@ There are two types of permissions added in the repository, and you can choose o
 
 
 #### CustomField
-The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the ReadmecustomField.md file.
+The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the [ReadmeCustomField.md](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-StudyTube/blob/main/READMEcustomField.md) file.
 
 > [!TIP]
 The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
