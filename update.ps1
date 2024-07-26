@@ -10,24 +10,35 @@
 function Resolve-StudyTubeError {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,
-            ValueFromPipeline
-        )]
-        [object]$ErrorObject
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
     )
     process {
         $httpErrorObj = [PSCustomObject]@{
-            FullyQualifiedErrorId = $ErrorObject.FullyQualifiedErrorId
-            MyCommand             = $ErrorObject.InvocationInfo.MyCommand
-            RequestUri            = $ErrorObject.TargetObject.RequestUri
-            ScriptStackTrace      = $ErrorObject.ScriptStackTrace
-            ErrorMessage          = ''
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
         }
-        if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
-            $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
+        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
         }
-        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+        try {
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
+            $httpErrorObj.FriendlyMessage = $errorDetailsObject.error
+            if ($errorDetailsObject.error_description) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
+            }
+        } catch {
+            $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
     }
@@ -58,14 +69,14 @@ try {
     Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
     try {
         $splatGetUserParams = @{
-            Uri     = "$($actionContext.actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
             Method  = 'GET'
             Headers = $headers
         }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
+        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -Verbose:$false
         $outputContext.PreviousData = $correlatedAccount
     } catch {
-        if ($_.Exception.Response.StatusCode -eq 404){
+        if ($_.Exception.Response.StatusCode -eq 404) {
             $action = 'NotFound'
         } else {
             throw $_
@@ -74,22 +85,17 @@ try {
 
     # Always compare the account against the current account in target system
     if ($null -ne $correlatedAccount) {
-        $desiredAccount = [PSCustomObject]$actionContext.Data
         $splatCompareProperties = @{
-            ReferenceObject  = @($correlatedAccount.PSObject.Properties)
-            DifferenceObject = @($desiredAccount.PSObject.Properties)
+            ReferenceObject  = @($outputContext.PreviousData.PSObject.Properties)
+            DifferenceObject = @($actionContext.Data.PSObject.Properties)
         }
-        $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
-        if ($propertiesChanged) {
-            $action = 'UpdateAccount'
-            $dryRunMessage = "Account property(s) required to update: $($propertiesChanged.Name -join ', ')"
+        $propertiesChangedObject = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
+        $propertiesChanged = @{}
+        $propertiesChangedObject | ForEach-Object { $propertiesChanged[$_.Name] = $_.Value }
 
-            $changedPropertiesObject = @{}
-            foreach ($property in $propertiesChanged) {
-                $propertyName = $property.Name
-                $propertyValue = $account.$propertyName
-                $changedPropertiesObject.$propertyName = $propertyValue
-            }
+        if ($propertiesChanged.Count -gt 0) {
+            $action = 'UpdateAccount'
+            $dryRunMessage = "Account property(s) required to update: $($propertiesChanged.Keys -join ', ')"
         } else {
             $action = 'NoChanges'
             $dryRunMessage = 'No changes will be made to the account during enforcement'
@@ -109,19 +115,21 @@ try {
         switch ($action) {
             'UpdateAccount' {
                 Write-Information "Updating StudyTube account with accountReference: [$($actionContext.References.Account)]"
+                Write-Information "Account property(s) changed: [$($propertiesChanged.Keys -join ',')]"
                 $splatUpdateUserParams = @{
-                    Uri         = "$($actionContext.actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+                    Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
                     Method      = 'PUT'
                     Headers     = $headers
-                    ContentType = 'application/x-www-form-urlencoded'
-                    Body        = $changedPropertiesObject
+                    ContentType = 'application/json'
+                    Body        = ([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $propertiesChanged -Depth 10)))
                 }
-                $null = Invoke-RestMethod @splatUpdateUserParams -verbose:$false
+                $null = Invoke-RestMethod @splatUpdateUserParams -Verbose:$false
                 $outputContext.Success = $true
+
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "Update account was successful, Account property(s) updated: [$($propertiesChanged.name -join ',')]"
-                    IsError = $false
-                })
+                        Message = "Update account was successful, Account property(s) updated: [$($propertiesChanged.Keys -join ',')]"
+                        IsError = $false
+                    })
                 break
             }
 
@@ -129,24 +137,24 @@ try {
                 Write-Information "No changes to StudyTube account with accountReference: [$($actionContext.References.Account)]"
                 $outputContext.Success = $true
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = 'No changes will be made to the account during enforcement'
-                    IsError = $false
-                })
+                        Message = 'No changes will be made to the account during enforcement'
+                        IsError = $false
+                    })
                 break
             }
 
             'NotFound' {
-                $outputContext.Success  = $false
+                $outputContext.Success = $false
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "StudyTube account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
-                    IsError = $true
-                })
+                        Message = "StudyTube account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
+                        IsError = $true
+                    })
                 break
             }
         }
     }
 } catch {
-    $outputContext.Success  = $false
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {

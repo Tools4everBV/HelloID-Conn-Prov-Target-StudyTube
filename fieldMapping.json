@@ -36,23 +36,6 @@
       ]
     },
     {
-      "Name": "last_name",
-      "Description": "",
-      "Type": "Text",
-      "MappingActions": [
-        {
-          "MapForActions": [
-            "Create",
-            "Update"
-          ],
-          "MappingMode": "Complex",
-          "Value": "\"function GetLastName(person) {\\n    let calcFullName = \\\"\\\";\\n\\n    switch (person.Name.Convention) {\\n        case 'B':\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n        case 'P':\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner;\\n            break;\\n        case 'BP':\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName + ' - ';\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner;\\n            break;\\n        case 'PB':\\n            if (person.Name.familyNamePartnerPrefix !== null && person.Name.familyNamePartnerPrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePartnerPrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyNamePartner + ' - ';\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n        default:\\n            if (person.Name.familyNamePrefix !== null && person.Name.familyNamePrefix !== undefined) {\\n                calcFullName += person.Name.familyNamePrefix + ' ';\\n            }\\n            calcFullName += person.Name.FamilyName;\\n            break;\\n    }\\n\\n    return calcFullName;\\n}\\n\"",
-          "UsedInNotifications": false,
-          "StoreInAccountData": false
-        }
-      ]
-    },
-    {
       "Name": "company_role",
       "Description": "",
       "Type": "Text",
@@ -88,23 +71,6 @@
     },
     {
       "Name": "employee_number",
-      "Description": "",
-      "Type": "Text",
-      "MappingActions": [
-        {
-          "MapForActions": [
-            "Create",
-            "Update"
-          ],
-          "MappingMode": "Field",
-          "Value": "\"Person.ExternalId\"",
-          "UsedInNotifications": false,
-          "StoreInAccountData": false
-        }
-      ]
-    },
-    {
-      "Name": "uuid",
       "Description": "",
       "Type": "Text",
       "MappingActions": [
@@ -163,6 +129,40 @@
           ],
           "MappingMode": "Fixed",
           "Value": "\"nl\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "uid",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "last_name",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"// generateSurnameOption1.js [https://github.com/Tools4everBV/HelloID-Lib-Prov-HelperFunctions/blob/master/Javascript/Target/Surname_Lastname/Scripts/generateSurnameOption1.js]\\n//\\n// Mapping logic to generate the Surname according to the following convention.\\n// B\\tvan den Boele\\n// BP\\tvan den Boele – de Vries\\n// P\\tde Vries\\n// PB   de Vries – van den Boele\\nfunction generateSurname() {\\n    let nickName = Person.Name.NickName;\\n    let middleName = Person.Name.FamilyNamePrefix;\\n    let lastName = Person.Name.FamilyName;\\n    let middleNamePartner = Person.Name.FamilyNamePartnerPrefix;\\n    let lastNamePartner = Person.Name.FamilyNamePartner;\\n    let convention = Person.Name.Convention;\\n\\n    let surName = '';\\n    switch (convention) {\\n        case \\\"BP\\\":\\n            if (typeof middleName !== 'undefined' && middleName) { surName = surName + middleName + ' ' }\\n            surName = surName + lastName;\\n\\n            surName = surName + ' - ';\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { surName = surName + middleNamePartner + ' ' }\\n            surName = surName + lastNamePartner;\\n            break;\\n        case \\\"PB\\\":\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { surName = surName + middleNamePartner + ' ' }\\n            surName = surName + lastNamePartner;\\n\\n            surName = surName + ' - ';\\n            if (typeof middleName !== 'undefined' && middleName) { surName = surName + middleName + ' ' }\\n            surName = surName + lastName;\\n            break;\\n        case \\\"P\\\":\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { surName = surName + middleNamePartner + ' ' }\\n            surName = surName + lastNamePartner;\\n            break;\\n        case \\\"B\\\":\\n        default:\\n            if (typeof middleName !== 'undefined' && middleName) { surName = surName + middleName + ' ' }\\n            surName = surName + lastName;\\n            break;\\n    }\\n    // Trim spaces at start and end\\n    surName = surName.trim();\\n\\n    // Shorten string to maxAttributeLength \\n    const maxAttributeLength = 64;\\n    surName = surName.substring(0, maxAttributeLength);\\n\\n    return surName;\\n}\\n\\ngenerateSurname();\"",
           "UsedInNotifications": false,
           "StoreInAccountData": false
         }

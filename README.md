@@ -21,10 +21,15 @@
       - [Correlation configuration](#correlation-configuration)
       - [Field mapping](#field-mapping)
     - [Connection settings](#connection-settings)
+    - [Pre-Requisites](#pre-requisites)
     - [Remarks](#remarks)
       - [All users will be retrieved within the `create` lifecycle](#all-users-will-be-retrieved-within-the-create-lifecycle)
-      - [PageSize](#pagesize)
-      - [Multiple accounts](#multiple-accounts)
+      - [CsvExportFileAndPath](#csvexportfileandpath)
+      - [Correlation](#correlation)
+      - [ResourcePageSize](#resourcepagesize)
+      - [Permissions](#permissions)
+      - [CustomField](#customfield)
+      - [Encoding](#encoding)
   - [Getting help](#getting-help)
   - [HelloID docs](#helloid-docs)
 
@@ -49,6 +54,7 @@ The following lifecycle actions are available:
 | update.ps1           | PowerShell _update_ lifecycle action      |
 | grantPermission.ps1  | PowerShell _grant_ lifecycle action       |
 | revokePermission.ps1 | PowerShell _revoke_ lifecycle action      |
+| subPermissions.ps1   | PowerShell _All-in-one_ lifecycle action  |
 | permissions.ps1      | PowerShell _permissions_ lifecycle action |
 | configuration.json   | Default _configuration.json_              |
 | fieldMapping.json    | Default _fieldMapping.json_               |
@@ -71,7 +77,7 @@ To properly setup the correlation:
     | ------------------------- | --------------------------------- |
     | Enable correlation        | `True`                            |
     | Person correlation field  | `PersonContext.Person.ExternalId` |
-    | Account correlation field | `uuid`                            |
+    | Account correlation field | `employee_number`                 |
 
 > [!TIP]
 > _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
@@ -84,27 +90,95 @@ The field mapping can be imported by using the _fieldMapping.json_ file.
 
 The following settings are required to connect to the API.
 
-| Setting      | Description                                                                                    | Mandatory |
-| ------------ | ---------------------------------------------------------------------------------------------- | --------- |
-| ClientId     | The ClientId to connect to StudyTube                                                           | Yes       |
-| ClientSecret | The ClientSecret to connect to StudyTube                                                       | Yes       |
-| BaseUrl      | The URL to the StudyTube API.                                                                  | Yes       |
-| TokenUrl     | The URL to StudyTube for retrieving the accessToken.                                           | Yes       |
-| PageSize     | Default 25. If you encounter problems with to many request try a higher value, for example 200 | Yes       |
+| Setting              | Description                                                                                     | Mandatory |
+| -------------------- | ----------------------------------------------------------------------------------------------- | --------- |
+| ClientId             | The ClientId to connect to StudyTube                                                            | Yes       |
+| ClientSecret         | The ClientSecret to connect to StudyTube                                                        | Yes       |
+| BaseUrl              | The URL to the StudyTube API.                                                                   | Yes       |
+| TokenUrl             | The URL to StudyTube for retrieving the accessToken.                                            | Yes       |
+| ResourcePageSize     | Default 150. If you encounter problems with to many request try a higher value, for example 200 | Yes       |
+| CsvExportFileAndPath | Specifies the name and file path where the CSV User export will be saved                        | Yes       |
+
+### Pre-Requisites
+
+- An on-premises agent.
+- Storage available to save the user export file, with direct access by the agent.
+- All Connection settings properties.
+
 
 ### Remarks
 
 #### All users will be retrieved within the `create` lifecycle
 
-The _StudyTube_ API does not provide the option to fetch a user based on its `uuid`; instead, users can only be retrieved using their `id`. Within the _create_ lifecycle action, all users are fetched. Additionally, we have the functionality to group and filter users based on the `uuid` as needed.
+The _StudyTube_ API does not provide the option to fetch a user based on `employee_number`; instead, users can only be retrieved using their `id`. Therefore, when you have a large number of employees, you cannot fetch the users in the create lifecycle without reaching the API throttling limit of StudyTube. Which is at moment of writing 90 call per minute.
 
-#### PageSize
 
-Because __all__ users are retrieved, paging is also required. You can change the `PageSize` in the configuration. The default `PageSize` is set to __25__. If you encounter problems with to many request try a higher value, for example __200__.
+#### CsvExportFileAndPath
 
-#### Multiple accounts
+The connector is designed for larger companies, so it does not retrieve users during the creation lifecycle. Instead, a Resource script is used to retrieve all users and store them in a CSV file on disk. This requires storage accessible by the agent. The location can be defined in the configuration item named `CsvExportFileAndPath`.
 
-During the retrieval of all accounts from _StudyTube_, there are instances where the response may include duplicate objects. In such scenarios, the create lifecycle action raises an error rather than proceeding.
+#### Correlation
+The creation process performs its correlation not against the StudyTube API, but against the CSV file generated by the Resource script.
+
+If you have a small company and want to use the connector, please consider using a direct API call to perform the correlation. This can be done with a code change like the example below.
+
+``` Powershell
+Write-Information 'Retrieving authorization token'
+$headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+$headers.Add("Content-Type", "application/x-www-form-urlencoded")
+$tokenBody = @{
+    client_id     = $($actionContext.Configuration.ClientId)
+    client_secret = $($actionContext.Configuration.ClientSecret)
+    grant_type    = 'client_credentials'
+    scope         = 'read write'
+}
+$tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+
+Write-Information 'Setting authorization header'
+$headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+$headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
+
+$splatGetUserParams = @{
+    Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
+    Method      = 'GET'
+    Headers     = $headers
+}
+$userResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+
+$userListSorted = $userResult | Sort-Object -Property id -Unique
+$lookupUser = $userListSorted | Group-Object -Property employee_number -AsHashTable -AsString
+$correlatedAccount = $lookupUser[$($correlationValue)]
+```
+
+> [!TIP]
+> The Tools4ever Connector team contacted the supplier with a query to add a filter to the user endpoint to retrieve users by `employee_number` or `UID`. If this request is implemented, the connector will be able to directly query the API during the correlation process and eliminate the need for the Resource script.
+
+#### ResourcePageSize
+
+Because __all__ users are retrieved, paging is also required. You can change the `ResourcePageSize` in the configuration. The default `ResourcePageSize` is set to __150__. If you encounter problems with to many request try a higher value, for example __200__, the max is __1000__
+
+#### Permissions
+There are two types of permissions added in the repository, and you can choose one. Alternatively, you can use the all-in-one script subPermissions.ps1, or the grantPermission and revokePermission scripts. The preferred solution is to use the individual scripts. However, when you reach the maximum number of business rules, consider using subPermissions.
+
+
+#### CustomField
+The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the customFieldReadme.md file.
+
+> [!TIP]
+The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
+
+#### Encoding
+In HelloID, the connector encountered encoding issues. You might need to add the following lines to the update script, directly below the `Get user <id`> web request, to retrieve diacritics with the correct encoding.
+
+```powerShell
+$correlatedAccount = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+$isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+$correlatedAccount = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($correlatedAccount | ConvertTo-Json -Depth 10))) | ConvertFRom-json
+
+$outputContext.PreviousData = $correlatedAccount
+```
+
+
 
 ## Getting help
 
