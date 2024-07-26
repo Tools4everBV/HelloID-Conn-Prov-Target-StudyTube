@@ -90,9 +90,8 @@ try {
 
     } while ( $partialResultUsers.Count -eq $pageSize )
 
-
     Write-Information "Export [$($returnUsers.Count)] users to CSV [$($actionContext.Configuration.CsvExportFileAndPath)]"
-    $returnUsers | Select-Object id, full_name, uid, employee_number | Export-Csv -Path "$($actionContext.Configuration.CsvExportFileAndPath)" -NoTypeInformation -Force
+    $returnUsers | Select-Object id, full_name, uid, employee_number, email | Export-Csv -Path "$($actionContext.Configuration.CsvExportFileAndPath)" -NoTypeInformation -Force
     $outputContext.Success = $true
 } catch {
     $outputContext.Success = $false

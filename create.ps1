@@ -77,7 +77,7 @@ try {
         }
         $employeeListResult = Import-Csv -Path $($actionContext.Configuration.CsvExportFileAndPath) -Encoding UTF8
         Write-Information "Using import data from: [$( (Get-Item  -Path $($actionContext.Configuration.CsvExportFileAndPath)).LastWriteTime)]"
-        $correlatedAccount = $employeeListResult | Where-Object { $_.employee_number -eq $correlationValue }
+        $correlatedAccount = $employeeListResult | Where-Object { $_.$correlationField -eq $correlationValue }
     }
 
     if ($null -ne $correlatedAccount) {
@@ -96,6 +96,9 @@ try {
         switch ($action) {
             'CreateAccount' {
                 Write-Information 'Creating and correlating StudyTube account'
+                if ($actionContext.Data.email -in $employeeListResult.email) {
+                    throw "Email [$($actionContext.Data.email)] already in use in StudyTube"
+                }
 
                 $jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10
                 $splatCreateUserParams = @{

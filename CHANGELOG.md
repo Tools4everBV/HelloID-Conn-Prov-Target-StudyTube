@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file. The format 
 - Added examples for custom fields (additional commit).
 - Added paging to the Teams resource script.
 - Added paging amount to the connector configuration.
-
+- Added a check to prevent creating users with already existing email addresses.
 
 ### Changed
 - Changed body type from x-www-form-urlencoded to JSON.

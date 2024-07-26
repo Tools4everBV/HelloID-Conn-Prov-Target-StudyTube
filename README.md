@@ -28,6 +28,7 @@
       - [Correlation](#correlation)
       - [ResourcePageSize](#resourcepagesize)
       - [Permissions](#permissions)
+      - [Uniqueness](#uniqueness)
       - [CustomField](#customfield)
       - [Encoding](#encoding)
   - [Getting help](#getting-help)
@@ -77,7 +78,7 @@ To properly setup the correlation:
     | ------------------------- | --------------------------------- |
     | Enable correlation        | `True`                            |
     | Person correlation field  | `PersonContext.Person.ExternalId` |
-    | Account correlation field | `employee_number`                 |
+    | Account correlation field | `UID`                             |
 
 > [!TIP]
 > _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
@@ -110,7 +111,7 @@ The following settings are required to connect to the API.
 
 #### All users will be retrieved within the `create` lifecycle
 
-The _StudyTube_ API does not provide the option to fetch a user based on `employee_number`; instead, users can only be retrieved using their `id`. Therefore, when you have a large number of employees, you cannot fetch the users in the create lifecycle without reaching the API throttling limit of StudyTube. Which is at moment of writing 90 call per minute.
+The _StudyTube_ API does not provide the option to fetch a user based on `UID` (EmployeeNumber); instead, users can only be retrieved using their `id`. Therefore, when you have a large number of employees, you cannot fetch the users in the create lifecycle without reaching the API throttling limit of StudyTube. Which is at moment of writing 90 call per minute.
 
 
 #### CsvExportFileAndPath
@@ -146,12 +147,12 @@ $splatGetUserParams = @{
 $userResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
 
 $userListSorted = $userResult | Sort-Object -Property id -Unique
-$lookupUser = $userListSorted | Group-Object -Property employee_number -AsHashTable -AsString
+$lookupUser = $userListSorted | Group-Object -Property uid -AsHashTable -AsString
 $correlatedAccount = $lookupUser[$($correlationValue)]
 ```
 
 > [!TIP]
-> The Tools4ever Connector team contacted the supplier with a query to add a filter to the user endpoint to retrieve users by `employee_number` or `UID`. If this request is implemented, the connector will be able to directly query the API during the correlation process and eliminate the need for the Resource script.
+> The Tools4ever Connector team contacted the supplier with a query to add a filter to the user endpoint to retrieve users by `UID`. If this request is implemented, the connector will be able to directly query the API during the correlation process and eliminate the need for the Resource script.
 
 #### ResourcePageSize
 
@@ -159,6 +160,10 @@ Because __all__ users are retrieved, paging is also required. You can change the
 
 #### Permissions
 There are two types of permissions added in the repository, and you can choose one. Alternatively, you can use the all-in-one script subPermissions.ps1, or the grantPermission and revokePermission scripts. The preferred solution is to use the individual scripts. However, when you reach the maximum number of business rules, consider using subPermissions.
+
+#### Uniqueness
+- The property `employee_number` is not unique in StudyTube, which means that the `UID` should be used as the correlation key.
+- The email address should be unique in StudyTube. When the email address already exists, attempting to create a new user with an existing email address results in updating the existing user instead of creating a new one. A condition has been added to the creation process to avoid this update and stop when this situation occurs.
 
 
 #### CustomField
