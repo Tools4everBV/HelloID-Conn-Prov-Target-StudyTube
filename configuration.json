@@ -43,33 +43,23 @@
     }
   },
   {
-    "key": "UpdatePersonOnCorrelate",
-    "type": "checkbox",
-    "defaultValue": false,
-    "templateOptions": {
-      "label": "Update account during correlating",
-      "required": false,
-      "description": "This will update the account in the target application during correlation"
-    }
-  },
-  {
-    "key": "IsDebug",
-    "type": "checkbox",
-    "defaultValue": true,
-    "templateOptions": {
-      "label": "Toggle debug logging",
-      "description": "When toggled, debug logging will be displayed",
-      "required": false
-    }
-  },
-  {
-    "key": "UserPageSize",
+    "key": "ResourcePageSize",
     "type": "input",
-    "defaultValue": "25",
+    "defaultValue": "150",
     "templateOptions": {
-      "label": "User Page Size",
-      "placeholder": "25",
-      "description": "Page size for Retrieving users (default: between 25 and 200)",
+      "label": "Resources Page Size",
+      "placeholder": "500",
+      "description": "Page size for Retrieving Users and Teams in the resource script. (Between 1 and 1000)",
+      "required": true
+    }
+  },
+  {
+    "key": "CsvExportFileAndPath",
+    "type": "input",
+    "templateOptions": {
+      "label": "Csv User Export Path",
+      "placeholder": "C:\\StudyTubeCache\\UsersExport.Csv",
+      "description": "Specifies the name and file path where the CSV User export will be saved",
       "required": true
     }
   }

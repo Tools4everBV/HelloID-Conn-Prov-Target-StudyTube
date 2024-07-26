@@ -10,24 +10,35 @@
 function Resolve-StudyTubeError {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,
-            ValueFromPipeline
-        )]
-        [object]$ErrorObject
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
     )
     process {
         $httpErrorObj = [PSCustomObject]@{
-            FullyQualifiedErrorId = $ErrorObject.FullyQualifiedErrorId
-            MyCommand             = $ErrorObject.InvocationInfo.MyCommand
-            RequestUri            = $ErrorObject.TargetObject.RequestUri
-            ScriptStackTrace      = $ErrorObject.ScriptStackTrace
-            ErrorMessage          = ''
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
         }
-        if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
-            $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
+        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
         }
-        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+        try {
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
+            $httpErrorObj.FriendlyMessage = $errorDetailsObject.error
+            if ($errorDetailsObject.error_description) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
+            }
+        } catch {
+            $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
     }
@@ -38,48 +49,35 @@ try {
     # Initial Assignments
     $outputContext.AccountReference = 'Currently not available'
 
+    Write-Information 'Retrieving authorization token'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Content-Type', 'application/x-www-form-urlencoded')
+    $tokenBody = @{
+        client_id     = $($actionContext.Configuration.ClientId)
+        client_secret = $($actionContext.Configuration.ClientSecret)
+        grant_type    = 'client_credentials'
+        scope         = 'read write'
+    }
+    $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
+
+    Write-Information 'Setting authorization header'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
+
     # Validate correlation configuration
     if ($actionContext.CorrelationConfiguration.Enabled) {
-        $correlationField = $actionContext.CorrelationConfiguration.personField
-        $correlationValue = $actionContext.CorrelationConfiguration.personFieldValue
+        $correlationField = $actionContext.CorrelationConfiguration.AccountField
+        $correlationValue = $actionContext.CorrelationConfiguration.AccountFieldValue
 
         if ([string]::IsNullOrEmpty($($correlationField))) {
             throw 'Correlation is enabled but not configured correctly'
         }
         if ([string]::IsNullOrEmpty($($correlationValue))) {
-            throw 'Correlation is enabled but [personFieldValue] is empty. Please make sure it is correctly mapped'
+            throw 'Correlation is enabled but [AccountFieldValue] is empty. Please make sure it is correctly mapped'
         }
-
-        Write-Information 'Retrieving authorization token'
-        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-        $headers.Add("Content-Type", "application/x-www-form-urlencoded")
-        $tokenBody = @{
-            client_id     = $($actionContext.Configuration.ClientId)
-            client_secret = $($actionContext.Configuration.ClientSecret)
-            grant_type    = 'client_credentials'
-            scope         = 'read write'
-        }
-        $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
-
-        Write-Information 'Setting authorization header'
-        $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-        $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
-
-        Write-Information 'Retrieving all users from StudyTube'
-        $splatGetUserParams = @{
-            Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
-            Method      = 'GET'
-            Headers     = $headers
-        }
-        $userResult = Invoke-RestMethod @splatGetUserParams
-
-        # In some cases studytube returns the same userid multiple times (exactly the same record).
-        $userListSorted = $userResult | Sort-Object -Property id -Unique
-        $lookupUser = $userListSorted | Group-Object -Property uid -AsHashTable -AsString
-        $correlatedAccount = $lookupUser[$($correlationValue)]
-        if (($correlatedAccount | measure-object).Count -gt 1) {
-            throw "Found multiple user accounts [$($correlatedAccount.email -join ", ")] [$($correlatedAccount.id -join ", ")]"
-        }
+        $employeeListResult = Import-Csv -Path $($actionContext.Configuration.CsvExportFileAndPath) -Encoding UTF8
+        Write-Information "Using import data from: [$( (Get-Item  -Path $($actionContext.Configuration.CsvExportFileAndPath)).LastWriteTime)]"
+        $correlatedAccount = $employeeListResult | Where-Object { $_.$correlationField -eq $correlationValue }
     }
 
     if ($null -ne $correlatedAccount) {
@@ -98,17 +96,22 @@ try {
         switch ($action) {
             'CreateAccount' {
                 Write-Information 'Creating and correlating StudyTube account'
+                if ($actionContext.Data.email -in $employeeListResult.email) {
+                    throw "Email [$($actionContext.Data.email)] already in use in StudyTube"
+                }
+
+                $jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10
                 $splatCreateUserParams = @{
                     Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
                     Method      = 'POST'
                     Headers     = $headers
-                    ContentType = 'application/x-www-form-urlencoded'
-                    Body        = $actionContext.Data
+                    ContentType = 'application/json'
+                    Body        = ([System.Text.Encoding]::UTF8.GetBytes($jsonBody))
                 }
-                $createdAccount = Invoke-RestMethod @splatCreateUserParams -verbose:$false
+                $createdAccount = Invoke-RestMethod @splatCreateUserParams -Verbose:$false
                 $outputContext.Data = $createdAccount
                 $outputContext.AccountReference = $createdAccount.id
-                $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)"
+                $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]"
                 break
             }
 
