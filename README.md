@@ -4,9 +4,6 @@
 > [!IMPORTANT]
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
-> [!WARNING]
-> This connector has not been tested on a _StudyTube_ environment. Therefore, changes will have to be made accordingly.
-
 <p align="center">
   <img src="https://www.tools4ever.nl/connector-logos/studytube-logo-2.png">
 </p>
@@ -167,7 +164,7 @@ There are two types of permissions added in the repository, and you can choose o
 
 
 #### CustomField
-The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the customFieldReadme.md file.
+The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the ReadmecustomField.md file.
 
 > [!TIP]
 The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
