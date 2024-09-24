@@ -67,26 +67,14 @@ try {
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-    Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
-    try {
-        $splatGetUserParams = @{
-            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
-            Method  = 'GET'
-            Headers = $headers
-        }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
-    } catch {
-        throw
-    }
-
     # Add a message and the result of each of the validations showing what will happen during enforcement
     if ($actionContext.DryRun -eq $true) {
-        Write-Information "[DryRun] Grant StudyTube entitlement: [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
+        Write-Information "[DryRun] Grant StudyTube entitlement: [$($actionContext.References.Permission.DisplayName)], will be executed during enforcement"
     }
 
     # Process
     if (-not($actionContext.DryRun -eq $true)) {
-        Write-Information "Granting StudyTubeV2 entitlement: [$($actionContext.References.Permission.Reference.DisplayName))] and ID: [$($actionContext.References.Permission.Reference)]"
+        Write-Information "Granting StudyTubeV2 entitlement: [$($actionContext.References.Permission.DisplayName)] and ID: [$($actionContext.References.Permission.Reference)]"
         $splatGrantPermissionParams = @{
             Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/$($actionContext.References.Permission.Reference)/users"
             Method      = 'POST'
@@ -103,7 +91,6 @@ try {
             Message = "Grant permission [$($actionContext.References.Permission.DisplayName)] was successful"
             IsError = $false
         })
-
     }
 } catch {
     $outputContext.success = $false
