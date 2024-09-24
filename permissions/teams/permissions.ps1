@@ -59,30 +59,48 @@ try {
 
     Write-Verbose 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
+    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
 
-    Write-Verbose 'Retrieving all active academy-teams from StudyTube'
-    $splatRetrievePermissionsParams = @{
-        Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/active"
-        Method      = 'GET'
-        Headers     = $headers
-        ContentType = 'application/json'
-    }
-    $teamResult = Invoke-RestMethod @splatRetrievePermissionsParams -Verbose:$false
+    Write-Information 'Retrieving all active academy-teams from StudyTube'
+    $pageSize = [int]$actionContext.Configuration.ResourcePageSize
+    $pageNumber = 1
 
-    $permissionList = [System.Collections.Generic.List[object]]::new()
-    foreach ($team in $teamResult) {
-        $permission = @{
-            DisplayName    = $team.name
-            Identification = @{
-                DisplayName = $team.name
-                Reference   = $team.id
+    $teamResult = [System.Collections.Generic.List[Object]]::new()
+    do {
+        try {
+            $splatRetrievePermissionsParams = @{
+                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/active?per_page=$($pageSize)&page=$pageNumber"
+                Method      = 'GET'
+                Headers     = $headers
+                ContentType = 'application/json'
+            }
+            $rawTeamsContent = Invoke-RestMethod @splatRetrievePermissionsParams -Verbose:$false
+            $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+            $partialTeamResult = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+        } catch {
+            if ( $_.Exception.StatusCode -eq 429) {
+                throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
+            } else {
+                throw
             }
         }
-        $permissionList.Add($permission)
-    }
+        if ($partialTeamResult.Count -gt 0) {
+            $teamResult.AddRange($partialTeamResult)
+        }
+        $pageNumber++
+        Write-Information "Teams found [$($teamResult.Count)]"
+    } while ( $partialTeamResult.Count -eq $pageSize )
 
-    Write-Output $permissionList | ConvertTo-Json -Depth 10
+    foreach ($team in $teamResult) {
+        $outputContext.Permissions.Add( @{
+                DisplayName    = $team.name
+                Identification = @{
+                    DisplayName = $team.name
+                    Reference   = $team.id
+                }
+            }
+        )
+    }
 } catch {
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
