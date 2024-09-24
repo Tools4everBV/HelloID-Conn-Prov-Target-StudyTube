@@ -1,7 +1,7 @@
-####################################################
-# HelloID-Conn-Prov-Target-StudyTube-Resources-Teams
+#############################################################
+# HelloID-Conn-Prov-Target-StudyTube-Resources-Teams-Retrieve
 # PowerShell V2
-####################################################
+#############################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
