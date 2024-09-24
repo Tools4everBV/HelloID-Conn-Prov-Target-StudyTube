@@ -4,6 +4,9 @@
 > [!IMPORTANT]
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
+> [!WARNING]
+> This connector has not been tested on a _StudyTube_ environment. Therefore, changes will have to be made accordingly.
+
 <p align="center">
   <img src="https://www.tools4ever.nl/connector-logos/studytube-logo-2.png">
 </p>
@@ -20,14 +23,14 @@
     - [Connection settings](#connection-settings)
     - [Pre-Requisites](#pre-requisites)
     - [Remarks](#remarks)
-      - [All users will be retrieved within the `create` lifecycle](#all-users-will-be-retrieved-within-the-create-lifecycle)
-      - [CsvExportFileAndPath](#csvexportfileandpath)
-      - [Correlation](#correlation)
-      - [ResourcePageSize](#resourcepagesize)
-      - [Permissions](#permissions)
-      - [Uniqueness](#uniqueness)
-      - [CustomField](#customfield)
-      - [Encoding](#encoding)
+      - [Account correlation](#account-correlation)
+      - [Pagination](#pagination)
+      - [Permissions - Academy-Teams](#permissions---academy-teams)
+        - [Dynamic permissions](#dynamic-permissions)
+        - [Retrieve teams](#retrieve-teams)
+        - [Creating teams](#creating-teams)
+      - [`email_address` field must be unique](#email_address-field-must-be-unique)
+      - [Custom fields](#custom-fields)
   - [Getting help](#getting-help)
   - [HelloID docs](#helloid-docs)
 
@@ -45,17 +48,20 @@ The API documentation can be found on: https://public-api.studytube.nl/api/v2/do
 
 The following lifecycle actions are available:
 
-| Action               | Description                               |
-| -------------------- | ----------------------------------------- |
-| create.ps1           | PowerShell _create_ lifecycle action      |
-| delete.ps1           | PowerShell _delete_ lifecycle action      |
-| update.ps1           | PowerShell _update_ lifecycle action      |
-| grantPermission.ps1  | PowerShell _grant_ lifecycle action       |
-| revokePermission.ps1 | PowerShell _revoke_ lifecycle action      |
-| subPermissions.ps1   | PowerShell _All-in-one_ lifecycle action  |
-| permissions.ps1      | PowerShell _permissions_ lifecycle action |
-| configuration.json   | Default _configuration.json_              |
-| fieldMapping.json    | Default _fieldMapping.json_               |
+| Action                                  | Description                                |
+| --------------------------------------- | ------------------------------------------ |
+| create.ps1                              | PowerShell _create_ lifecycle action       |
+| delete.ps1                              | PowerShell _delete_ lifecycle action       |
+| update.ps1                              | PowerShell _update_ lifecycle action       |
+| \permissions\teams\grantPermission.ps1  | PowerShell _grant_ lifecycle action        |
+| \permissions\teams\revokePermission.ps1 | PowerShell _revoke_ lifecycle action       |
+| \permissions\teams\subPermissions.ps1   | PowerShell _All-in-one_ lifecycle action   |
+| \permissions\teams\permissions.ps1      | PowerShell _permissions_ lifecycle action  |
+| configuration.json                      | Default _configuration.json_               |
+| fieldMapping.json                       | Default _fieldMapping.json_                |
+| \resources\teams\create\resources.ps1   | Creates teams within StudyTube             |
+| \resources\teams\retrieve\resources.ps1 | Exports all __active__ teams to a CSV file |
+| \resources\user\resources.ps1           | Exports all users to a CSV file            |
 
 ## Getting started
 
@@ -88,99 +94,74 @@ The field mapping can be imported by using the _fieldMapping.json_ file.
 
 The following settings are required to connect to the API.
 
-| Setting              | Description                                                                                     | Mandatory |
-| -------------------- | ----------------------------------------------------------------------------------------------- | --------- |
-| ClientId             | The ClientId to connect to StudyTube                                                            | Yes       |
-| ClientSecret         | The ClientSecret to connect to StudyTube                                                        | Yes       |
-| BaseUrl              | The URL to the StudyTube API.                                                                   | Yes       |
-| TokenUrl             | The URL to StudyTube for retrieving the accessToken.                                            | Yes       |
-| ResourcePageSize     | Default 150. If you encounter problems with to many request try a higher value, for example 200 | Yes       |
-| CsvExportFileAndPath | Specifies the name and file path where the CSV User export will be saved                        | Yes       |
+| Setting                   | Description                                                                                                                                              | Mandatory |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| ClientId                  | The ClientId to connect to StudyTube.                                                                                                                    | Yes       |
+| ClientSecret              | The ClientSecret to connect to StudyTube.                                                                                                                | Yes       |
+| BaseUrl                   | The URL to the StudyTube API.                                                                                                                            | Yes       |
+| TokenUrl                  | The URL to StudyTube for retrieving the accessToken.                                                                                                     | Yes       |
+| ResourcePageSize          | The number of records returned in a single request. The default value is `150`. Can be increased when facing issues related to making too many requests. | Yes       |
+| UsersCsvExportFileAndPath | Specifies the name and file path where the CSV teams export will be saved.                                                                               | Yes       |
+| TeamsCsvExportFileAndPath | Specifies the name and file path where the CSV users export will be saved.                                                                               | Yes       |
 
 ### Pre-Requisites
 
-- An on-premises agent.
-- Storage available to save the user export file, with direct access by the agent.
-- All Connection settings properties.
-
+- [ ] The HelloID on-premises agent must be installed.
 
 ### Remarks
 
-#### All users will be retrieved within the `create` lifecycle
+>[!WARNING] Important Notice
+> Version `2.0.0` of the connector introduces significant changes and is **no longer backwards compatible** with previous versions. This update requires the use of the new resource scripts for teams and users, and older configurations require adjustments to function correctly with the latest updates.
 
-The _StudyTube_ API does not provide the option to fetch a user based on `UID` (EmployeeNumber); instead, users can only be retrieved using their `id`. Therefore, when you have a large number of employees, you cannot fetch the users in the create lifecycle without reaching the API throttling limit of StudyTube. Which is at moment of writing 90 call per minute.
+#### Account correlation
 
+The _StudyTube_ API does not allow users to be retrieved based on `employee_number` or `externalId`. They can only be retrieved using their `id`. The only workaround is to retrieve __all users__ within the _create_ lifecyle action. However, since this is not considered a best practice and because _StudyTube_ itself has an API throttle limit of __90__ requests per minute, the connector uses a _resources_ script to retrieve all users and export them to a CSV file. Within the _create_ lifecycle action, this CSV is used to validate whether the user account exists.
 
-#### CsvExportFileAndPath
+#### Pagination
 
-The connector is designed for larger companies, so it does not retrieve users during the creation lifecycle. Instead, a Resource script is used to retrieve all users and store them in a CSV file on disk. This requires storage accessible by the agent. The location can be defined in the configuration item named `CsvExportFileAndPath`.
-
-#### Correlation
-The creation process performs its correlation not against the StudyTube API, but against the CSV file generated by the Resource script.
-
-If you have a small company and want to use the connector, please consider using a direct API call to perform the correlation. This can be done with a code change like the example below.
-
-``` Powershell
-Write-Information 'Retrieving authorization token'
-$headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-$headers.Add("Content-Type", "application/x-www-form-urlencoded")
-$tokenBody = @{
-    client_id     = $($actionContext.Configuration.ClientId)
-    client_secret = $($actionContext.Configuration.ClientSecret)
-    grant_type    = 'client_credentials'
-    scope         = 'read write'
-}
-$tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
-
-Write-Information 'Setting authorization header'
-$headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-$headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
-
-$splatGetUserParams = @{
-    Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
-    Method      = 'GET'
-    Headers     = $headers
-}
-$userResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
-
-$userListSorted = $userResult | Sort-Object -Property id -Unique
-$lookupUser = $userListSorted | Group-Object -Property uid -AsHashTable -AsString
-$correlatedAccount = $lookupUser[$($correlationValue)]
-```
+The resource scripts to retrieve users and teams require pagination. The default page size is set to: `150`. If you encounter problems with to many request, try a higher value, for example: `200`, the maximum value is: `1000`.
 
 > [!TIP]
-> The Tools4ever Connector team contacted the supplier with a query to add a filter to the user endpoint to retrieve users by `UID`. If this request is implemented, the connector will be able to directly query the API during the correlation process and eliminate the need for the Resource script.
+> You can configure the pagesize for both resource scripts using the configuration setting: _ResourcePageSize_.
 
-#### ResourcePageSize
+#### Permissions - Academy-Teams
 
-Because __all__ users are retrieved, paging is also required. You can change the `ResourcePageSize` in the configuration. The default `ResourcePageSize` is set to __150__. If you encounter problems with to many request try a higher value, for example __200__, the max is __1000__
+This connector allows for the assignment of academy-teams through separate _grant/revoke/permissions_ lifecycle actions.
 
-#### Permissions
-There are two types of permissions added in the repository, and you can choose one. Alternatively, you can use the all-in-one script subPermissions.ps1, or the grantPermission and revokePermission scripts. The preferred solution is to use the individual scripts. However, when you reach the maximum number of business rules, consider using subPermissions.
+##### Dynamic permissions
 
-#### Uniqueness
-- The property `employee_number` is not unique in StudyTube, which means that the `UID` should be used as the correlation key.
-- The email address should be unique in StudyTube. When the email address already exists, attempting to create a new user with an existing email address results in updating the existing user instead of creating a new one. A condition has been added to the creation process to avoid this update and stop when this situation occurs.
+If a property in the person contract is directly linked to an academy team in StudyTube, you can use the `_subPermissions_` script to assign permissions dynamically.
 
+##### Retrieve teams
 
-#### CustomField
-The StudyTube API supports the use of custom fields. The current code does not implement custom fields, but you can find examples of how to implement them in the [ReadmeCustomField.md](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-StudyTube/blob/main/READMEcustomField.md) file.
+Because retrieving teams could result in too many requests being made, a separate resource script is provided to retrieve all teams and export them to a CSV.
+
+If you use the `_subPermissions_` script, this CSV file will be searched to look up the team name and ensure it matches a property from the person contract.
+If you're using the separate grant/revoke scripts and still encounter the "too many requests" issue, you might also need the `_/resources/teams/retrieve/resources.ps1_` to retrieve teams. In that case, the `_permissions_` script will need to be modified to import teams from the CSV file.
+
+##### Creating teams
+
+If a property in the person contract is directly linked to an academy team in StudyTube, you can use the `_/resources/teams/create/resources.ps1_` script to create teams within StudyTube.
+
+#### `email_address` field must be unique
+
+Creating a new user with an email address that already exists will update the existing user instead of adding a new one. To avoid this issue, a validation step has been implemented to confirm the uniqueness of the email address. If the email is not unique, the _create_ lifecycle action will return an error.
+
+#### Custom fields
+
+The StudyTube API supports the use of custom fields. The current code implements a hardcoded 'Key-Value' and 'Single Value' custom fields. Currently, only a single key-value pair is supported, but the API can handle multiple key-value pairs.
+
+The customFields can be added in the fieldMapping like the picture below. The object 'CustomField' Will be excluded from the account object while creating or updating. The connector resolves the customField to a Key-value pair array, which is accepted by the API. The example in the connector can be used to add your own customFields.
+
+<p>
+  <img src="assets\MappingCustomField.png">
+</p>
 
 > [!TIP]
-The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
+> All custom fields can be added using `customField.<KeyOfTheCustomField>`, where the value can be a standard-, complex mapping or a fixed value. In the example below, an underscore (`_`) is used as a separator for custom fields with multiple properties.*
 
-#### Encoding
-In HelloID, the connector encountered encoding issues. You might need to add the following lines to the update script, directly below the `Get user <id`> web request, to retrieve diacritics with the correct encoding.
-
-```powerShell
-$correlatedAccount = Invoke-RestMethod @splatGetUserParams -Verbose:$false
-$isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
-$correlatedAccount = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($correlatedAccount | ConvertTo-Json -Depth 10))) | ConvertFRom-json
-
-$outputContext.PreviousData = $correlatedAccount
-```
-
-
+> [!WARNING]
+> The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
 
 ## Getting help
 
@@ -193,4 +174,3 @@ $outputContext.PreviousData = $correlatedAccount
 ## HelloID docs
 
 The official HelloID documentation can be found at: https://docs.helloid.com/
-

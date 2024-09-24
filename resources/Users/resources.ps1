@@ -1,7 +1,7 @@
-####################################################
-# HelloID-Conn-Prov-Target-StudyTube-Resources-Users
+#############################################################
+# HelloID-Conn-Prov-Target-StudyTube-Resources-Retrieve-Users
 # PowerShell V2
-####################################################
+#############################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -73,8 +73,9 @@ try {
             Headers = $headers
         }
         try {
-            $partialResultUsers = Invoke-RestMethod @splatGetUserParams -Verbose:$false
-
+            $rawUsersResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+            $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+            $partialResultUsers = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawUsersResult | ConvertTo-Json -Depth 10))) | ConvertFrom-json
         } catch {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
@@ -90,8 +91,9 @@ try {
 
     } while ( $partialResultUsers.Count -eq $pageSize )
 
-    Write-Information "Export [$($returnUsers.Count)] users to CSV [$($actionContext.Configuration.CsvExportFileAndPath)]"
-    $returnUsers | Select-Object id, full_name, uid, employee_number, email | Export-Csv -Path "$($actionContext.Configuration.CsvExportFileAndPath)" -NoTypeInformation -Force
+
+    Write-Information "Export [$($returnUsers.Count)] users to CSV: [$($actionContext.Configuration.UserCsvExportFileAndPath)]"
+    $returnUsers | Select-Object id, full_name, uid, employee_number, email | Export-Csv -Path "$($actionContext.Configuration.UserCsvExportFileAndPath)" -NoTypeInformation -Force
     $outputContext.Success = $true
 } catch {
     $outputContext.Success = $false
@@ -99,10 +101,10 @@ try {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-StudyTubeError -ErrorObject $ex
-        $auditMessage = "Could not create StudyTube resource. Error: $($errorObj.FriendlyMessage)"
+        $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     } else {
-        $auditMessage = "Could not create StudyTube resource. Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{

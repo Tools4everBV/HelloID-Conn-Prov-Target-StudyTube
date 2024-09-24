@@ -1,8 +1,8 @@
-#####################################################
+#####################################################################
 # HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-DynamicPermission
 #
 # Version: 1.1.0
-#####################################################
+#####################################################################
 
 $currentPermissions = @{}
 foreach ($permission in $actionContext.CurrentPermissions) {
@@ -68,14 +68,7 @@ try {
     $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
     Write-Verbose 'Retrieving all active academy-teams from StudyTube'
-    $splatGetUserParams = @{
-        Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/active"
-        Method      = 'GET'
-        Headers     = $headers
-        ContentType = 'application/json'
-    }
-    $teamResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
-    # Make Name the grouped value to search with the correlationValue
+    $teamResult = Import-Csv -Path $($actionContext.Configuration.TeamsCsvExportFileAndPath) -Encoding UTF8
     $teamLookup = $teamResult | Group-Object -Property Name -AsHashTable -AsString
 
     # #region Change mapping here

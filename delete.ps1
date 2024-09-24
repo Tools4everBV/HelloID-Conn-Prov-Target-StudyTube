@@ -51,6 +51,10 @@ try {
         throw 'The account reference could not be found'
     }
 
+    Write-Information 'Setting authorization header'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
+
     Write-Information 'Retrieving authorization token'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -62,65 +66,34 @@ try {
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
 
-    Write-Information 'Setting authorization header'
-    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
-
-    Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
-    try {
-        $splatGetUserParams = @{
-            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
-            Method  = 'GET'
-            Headers = $headers
-        }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
-    } catch {
-        if ($_.Exception.Response.StatusCode -eq 404){
-            $action = 'NotFound'
-        } else {
-            throw $_
-        }
-    }
-
-    if ($null -ne $correlatedAccount) {
-        $action = 'DeleteAccount'
-        $dryRunMessage = "Delete StudyTube account: [$($actionContext.References.Account)] for person: [$($personContext.Person.DisplayName)] will be executed during enforcement"
-    } else {
-        $action = 'NotFound'
-        $dryRunMessage = "StudyTube account: [$($actionContext.References.Account)] for person: [$($personContext.Person.DisplayName)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
-    }
-
     # Add a message and the result of each of the validations showing what will happen during enforcement
     if ($actionContext.DryRun -eq $true) {
-        Write-Information "[DryRun] $dryRunMessage"
+        Write-Information "Delete StudyTube account: [$($actionContext.References.Account)] for person: [$($personContext.Person.DisplayName)] will be executed during enforcement"
     }
 
-    # Process
     if (-not($actionContext.DryRun -eq $true)) {
-        switch ($action) {
-            'DeleteAccount' {
-                Write-Information "Deleting StudyTube account with accountReference: [$($actionContext.References.Account)]"
-                $splatUpdateUserParams = @{
-                    Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
-                    Method  = 'DELETE'
-                    Headers = $headers
-                }
-                $null = Invoke-RestMethod @splatUpdateUserParams -verbose:$false
-                $outputContext.Success = $true
-                $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = 'Delete account was successful'
-                    IsError = $false
-                })
-                break
+        try {
+            Write-Information "Deleting StudyTube account with accountReference: [$($actionContext.References.Account)]"
+            $splatUpdateUserParams = @{
+                Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
+                Method  = 'DELETE'
+                Headers = $headers
             }
-
-            'NotFound' {
-                $outputContext.Success  = $true
+            $null = Invoke-RestMethod @splatUpdateUserParams -Verbose:$false
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                Message = 'Delete account was successful'
+                IsError = $false
+            })
+        } catch {
+            if ($_.Exception.Response.StatusCode -eq 404) {
+                $outputContext.Success = $true
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = "StudyTube account: [$($actionContext.References.Account)] for person: [$($personContext.Person.DisplayName)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
                     IsError = $false
                 })
-                break
+            } else {
+                throw
             }
         }
     }
@@ -137,7 +110,7 @@ try {
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }

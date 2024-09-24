@@ -67,63 +67,39 @@ try {
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add("Authorization", "Bearer $($tokenResponse.access_token)")
 
-    Write-Information "Verifying if a StudyTube account for [$($personContext.Person.DisplayName)] exists"
-    try {
-        $splatGetUserParams = @{
-            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users/$($actionContext.References.Account)"
-            Method  = 'GET'
-            Headers = $headers
-        }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams -verbose:$false
-    } catch {
-        if ($_.Exception.Response.StatusCode -eq 404){
-            $action = 'NotFound'
-        } else {
-            throw $_
-        }
-    }
-
-    if ($null -ne $correlatedAccount) {
-        $action = 'RevokePermission'
-        $dryRunMessage = "[DryRun] Revoke StudyTube entitlement: [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
-    } else {
-        $action = 'NotFound'
-        $dryRunMessage = "StudyTube account: [$($actionContext.References.Account)] for person: [$($personContext.Person.DisplayName)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
-    }
-
     # Add a message and the result of each of the validations showing what will happen during enforcement
     if ($actionContext.DryRun -eq $true) {
-        Write-Information "[DryRun] $dryRunMessage"
+        Write-Information "[DryRun] Revoke StudyTube entitlement: [$($actionContext.References.Permission.DisplayName)], will be executed during enforcement"
     }
 
     # Process
     if (-not($actionContext.DryRun -eq $true)) {
-        switch ($action){
-            'RevokePermission'{
-                Write-Information "Revoking StudyTube permission: [$($actionContext.References.Permission.Reference)]"
-                $splatRevokePermissionParams = @{
-                    Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/$($actionContext.References.Permission.Reference)/users"
-                    Method      = 'DELETE'
-                    Headers     = $headers
-                    ContentType = 'application/x-www-form-urlencoded'
-                    Body        = @{
-                        user_id = $actionContext.References.Account
-                    }
+        try {
+            Write-Information "Revoking StudyTube permission: [$($actionContext.References.Permission.Reference)]"
+            $splatRevokePermissionParams = @{
+                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/$($actionContext.References.Permission.Reference)/users"
+                Method      = 'DELETE'
+                Headers     = $headers
+                ContentType = 'application/x-www-form-urlencoded'
+                Body        = @{
+                    user_id = $actionContext.References.Account
                 }
-                $null = Invoke-RestMethod @splatRevokePermissionParams -verbose:$false
+            }
+            $null = Invoke-RestMethod @splatRevokePermissionParams -verbose:$false
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                Message = "Revoke permission [$($actionContext.References.Permission.DisplayName)] was successful"
+                IsError = $false
+            })
+        } catch {
+            if ($_.Exception.Response.StatusCode -eq 404) {
                 $outputContext.Success = $true
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = "Revoke permission [$($actionContext.References.Permission.DisplayName)] was successful"
                     IsError = $false
                 })
-            }
-            'NotFound' {
-                $outputContext.Success  = $false
-                $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "StudyTube account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it could be deleted, or the account is not correlated"
-                    IsError = $true
-                })
-                break
+            } else {
+                throw
             }
         }
     }

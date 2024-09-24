@@ -125,7 +125,6 @@ try {
                 }
                 $null = Invoke-RestMethod @splatUpdateUserParams -Verbose:$false
                 $outputContext.Success = $true
-
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
                         Message = "Update account was successful, Account property(s) updated: [$($propertiesChanged.Keys -join ',')]"
                         IsError = $false

@@ -1,7 +1,7 @@
-######################################################
-# HelloID-Conn-Prov-Target-StudyTube-Permissions
+#############################################################
+# HelloID-Conn-Prov-Target-StudyTube-Resources-Teams-Retrieve
 # PowerShell V2
-######################################################
+#############################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -46,37 +46,36 @@ function Resolve-StudyTubeError {
 #endregion
 
 try {
-    Write-Verbose 'Retrieving authorization token'
+    Write-Information 'Retrieving authorization token'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add("Content-Type", "application/x-www-form-urlencoded")
+    $headers.Add('Content-Type', 'application/x-www-form-urlencoded')
     $tokenBody = @{
         client_id     = $($actionContext.Configuration.ClientId)
         client_secret = $($actionContext.Configuration.ClientSecret)
         grant_type    = 'client_credentials'
         scope         = 'read write'
     }
-    $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
 
-    Write-Verbose 'Setting authorization header'
+    Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
 
-    Write-Information 'Retrieving all active academy-teams from StudyTube'
+    Write-Information 'Retrieving Teams from StudyTube'
     $pageSize = [int]$actionContext.Configuration.ResourcePageSize
     $pageNumber = 1
 
-    $teamResult = [System.Collections.Generic.List[Object]]::new()
+    $returnTeams = [System.Collections.Generic.List[Object]]::new()
     do {
+        $splatGetUserParams = @{
+            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/active?per_page=$($pageSize)&page=$pageNumber"
+            Method  = 'GET'
+            Headers = $headers
+        }
         try {
-            $splatRetrievePermissionsParams = @{
-                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/active?per_page=$($pageSize)&page=$pageNumber"
-                Method      = 'GET'
-                Headers     = $headers
-                ContentType = 'application/json'
-            }
-            $rawTeamsContent = Invoke-RestMethod @splatRetrievePermissionsParams -Verbose:$false
+            $rawTeamsContent = Invoke-RestMethod @splatGetUserParams -Verbose:$false
             $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
-            $partialTeamResult = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+            $partialResultTeams = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
         } catch {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
@@ -84,30 +83,31 @@ try {
                 throw
             }
         }
-        if ($partialTeamResult.Count -gt 0) {
-            $teamResult.AddRange($partialTeamResult)
+        if ($partialResultTeams.Count -gt 0) {
+            $returnTeams.AddRange($partialResultTeams)
         }
         $pageNumber++
-        Write-Information "Teams found [$($teamResult.Count)]"
-    } while ( $partialTeamResult.Count -eq $pageSize )
+        Write-Information "Teams found [$($returnTeams.Count)]"
 
-    foreach ($team in $teamResult) {
-        $outputContext.Permissions.Add( @{
-                DisplayName    = $team.name
-                Identification = @{
-                    DisplayName = $team.name
-                    Reference   = $team.id
-                }
-            }
-        )
-    }
+    } while ( $partialResultTeams.Count -eq $pageSize )
+
+    Write-Information "Export [$($returnTeams.Count)] users to CSV: [$($actionContext.Configuration.TeamsCsvExportFileAndPath)]"
+    $returnTeams | Select-Object id, name, archived, external_id, organizational_unit, created_at | Export-Csv -Path "$($actionContext.Configuration.TeamsCsvExportFileAndPath)" -NoTypeInformation -Force
+    $outputContext.Success = $true
 } catch {
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-StudyTubeError -ErrorObject $ex
+        $auditMessage = "Could not create StudyTube teams resource CSV file. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     } else {
+        $auditMessage = "Could not create StudyTube teams resource CSV file. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Message = $auditMessage
+            IsError = $true
+        })
 }
