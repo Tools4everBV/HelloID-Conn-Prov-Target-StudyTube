@@ -75,9 +75,14 @@ try {
         if ([string]::IsNullOrEmpty($($correlationValue))) {
             throw 'Correlation is enabled but [AccountFieldValue] is empty. Please make sure it is correctly mapped'
         }
-        $employeeListResult = Import-Csv -Path $($actionContext.Configuration.CsvExportFileAndPath) -Encoding UTF8
-        Write-Information "Using import data from: [$( (Get-Item  -Path $($actionContext.Configuration.CsvExportFileAndPath)).LastWriteTime)]"
+        $employeeListResult = Import-Csv -Path $($actionContext.Configuration.UserCsvExportFileAndPath) -Encoding UTF8
+        Write-Information "Using import data from: [$( (Get-Item  -Path $($actionContext.Configuration.UserCsvExportFileAndPath)).LastWriteTime)]"
         $correlatedAccount = $employeeListResult | Where-Object { $_.$correlationField -eq $correlationValue }
+    }
+
+    # Validate if the email address is unique within StudyTube
+    if ($actionContext.Data.email -in $employeeListResult.email) {
+        throw "Email address: [$($actionContext.Data.email)] already in use in StudyTube"
     }
 
     if ($null -ne $correlatedAccount) {
@@ -96,11 +101,6 @@ try {
         switch ($action) {
             'CreateAccount' {
                 Write-Information 'Creating and correlating StudyTube account'
-                if ($actionContext.Data.email -in $employeeListResult.email) {
-                    throw "Email [$($actionContext.Data.email)] already in use in StudyTube"
-                }
-
-                $jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10
                 $splatCreateUserParams = @{
                     Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
                     Method      = 'POST'
