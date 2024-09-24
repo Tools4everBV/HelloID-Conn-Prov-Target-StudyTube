@@ -1,7 +1,7 @@
-####################################################
-# HelloID-Conn-Prov-Target-StudyTube-Resources-Teams
+###########################################################
+# HelloID-Conn-Prov-Target-StudyTube-Resources-Teams-Create
 # PowerShell V2
-####################################################
+###########################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -79,28 +79,38 @@ try {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
             } else {
-                throw
+                throw "Error retrieving teams: $($_)"
             }
         }
         if ($partialTeamResult.Count -gt 0) {
             $teamResult.AddRange($partialTeamResult)
         }
         $pageNumber++
-        Write-Information "Teams found [$($teamResult.Count)]"
+        Write-Information "Teams found [$($teamResult.Count)] | page: $pageNumber"
     } while ( $partialTeamResult.Count -eq $pageSize )
+
+    $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+    $teamResult = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($teamResult | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+
+    Write-Warning "Teams found in StudyTube: $(($teamResult | measure-object).count)"
+
+    #Write-Warning "$(($teamResult | where-object name -like "Stagiaire V&V niv.1/2 * NIET GEBRUIKEN & NOVA-PG *").name)"
 
     Write-Information 'Validating resources that will need to be created'
     $resourcesToCreate = [System.Collections.Generic.List[object]]::new()
     $teamResultGrouped = $teamResult | Group-Object -AsString -AsHashTable -Property name
 
     foreach ($resource in $resourceContext.SourceData) {
-        $exists = $teamResultGrouped["$($resource)"]
-        if ($null -eq $exists) {
-            $resourcesToCreate.Add($resource)
+
+        if(-not([string]::IsNullOrEmpty($resource))){
+            $exists = $teamResultGrouped["$($resource)"]
+            if ($null -eq $exists) {
+                $resourcesToCreate.Add($resource)
+            }
         }
     }
-
     Write-Information "Creating [$($resourcesToCreate.Count)] resources"
+
     foreach ($resource in $resourcesToCreate) {
         try {
             if (-not ($actionContext.DryRun -eq $True)) {
