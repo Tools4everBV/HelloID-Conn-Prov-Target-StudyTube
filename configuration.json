@@ -54,12 +54,22 @@
     }
   },
   {
-    "key": "CsvExportFileAndPath",
+    "key": "UserCsvExportFileAndPath",
     "type": "input",
     "templateOptions": {
-      "label": "Csv User Export Path",
+      "label": "Csv user Export Path",
       "placeholder": "C:\\StudyTubeCache\\UsersExport.Csv",
-      "description": "Specifies the name and file path where the CSV User export will be saved",
+      "description": "Specifies the name and file path where the CSV user export will be saved",
+      "required": true
+    }
+  },
+  {
+    "key": "TeamsCsvExportFileAndPath",
+    "type": "input",
+    "templateOptions": {
+      "label": "Csv team Export Path",
+      "placeholder": "C:\\StudyTubeCache\\TeamsExport.Csv",
+      "description": "Specifies the name and file path where the CSV team export will be saved",
       "required": true
     }
   }
