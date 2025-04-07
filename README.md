@@ -4,9 +4,6 @@
 > [!IMPORTANT]
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
-> [!WARNING]
-> This connector has not been tested on a _StudyTube_ environment. Therefore, changes will have to be made accordingly.
-
 <p align="center">
   <img src="https://www.tools4ever.nl/connector-logos/studytube-logo-2.png">
 </p>
@@ -110,7 +107,7 @@ The following settings are required to connect to the API.
 
 ### Remarks
 
->[!WARNING] Important Notice
+> [!CAUTION]
 > Version `2.0.0` of the connector introduces significant changes and is **no longer backwards compatible** with previous versions. This update requires the use of the new resource scripts for teams and users, and older configurations require adjustments to function correctly with the latest updates.
 
 #### Account correlation
@@ -141,27 +138,14 @@ If you're using the separate grant/revoke scripts and still encounter the "too m
 
 ##### Creating teams
 
-If a property in the person contract is directly linked to an academy team in StudyTube, you can use the `_/resources/teams/create/resources.ps1_` script to create teams within StudyTube.
+If a property in the person contract is directly linked to an academy team in StudyTube, you can use the `_/resources/teams/create/resources.ps1_` script to create teams within StudyTube. Additionally, archived teams will be unarchived.
 
 #### `email_address` field must be unique
 
 Creating a new user with an email address that already exists will update the existing user instead of adding a new one. To avoid this issue, a validation step has been implemented to confirm the uniqueness of the email address. If the email is not unique, the _create_ lifecycle action will return an error.
 
 #### Custom fields
-
-The StudyTube API supports the use of custom fields. The current code implements a hardcoded 'Key-Value' and 'Single Value' custom fields. Currently, only a single key-value pair is supported, but the API can handle multiple key-value pairs.
-
-The customFields can be added in the fieldMapping like the picture below. The object 'CustomField' Will be excluded from the account object while creating or updating. The connector resolves the customField to a Key-value pair array, which is accepted by the API. The example in the connector can be used to add your own customFields.
-
-<p>
-  <img src="assets\MappingCustomField.png">
-</p>
-
-> [!TIP]
-> All custom fields can be added using `customField.<KeyOfTheCustomField>`, where the value can be a standard-, complex mapping or a fixed value. In the example below, an underscore (`_`) is used as a separator for custom fields with multiple properties.*
-
-> [!WARNING]
-> The connector does not support adding mew custom fields without any code changes. All new customFields requires code changes!
+[Custom fields readme](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-StudyTube/blob/main/READMEcustomField.md)
 
 ## Getting help
 
