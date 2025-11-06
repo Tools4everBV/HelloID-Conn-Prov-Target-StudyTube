@@ -100,6 +100,7 @@ try {
     if (-not($actionContext.DryRun -eq $true)) {
         switch ($action) {
             'CreateAccount' {
+                $jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10
                 Write-Information 'Creating and correlating StudyTube account'
                 $splatCreateUserParams = @{
                     Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
