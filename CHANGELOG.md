@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.0.1] - 06-11-2025
+
+### Fixed
+
+- Fixed [#6](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-StudyTube/issues/6): Added null checks for empty API responses during pagination in resource scripts. When the API returns an empty response (e.g., on the last page when the total record count is a multiple of the page size), the encoding conversion would fail. This has been resolved by checking for null or empty responses before attempting the encoding conversion in:
+  - `resources\Users\resources.ps1`
+  - `resources\teams\retrieve\resources.ps1`
+
+- Fixed [#9](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-StudyTube/issues/9): Re-added the missing `$jsonBody` variable definition in `create.ps1`. The line `$jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10` was accidentally removed in a previous update, causing the `$splatCreateUserParams` object to be incomplete.
+
 ## [2.0.0] - 20-09-2024
 
 ### Added
