@@ -75,7 +75,12 @@ try {
         try {
             $rawTeamsContent = Invoke-RestMethod @splatGetUserParams -Verbose:$false
             $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
-            $partialResultTeams = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+            if ($null -eq $rawTeamsContent -or ($rawTeamsContent -is [string] -and [string]::IsNullOrWhiteSpace($rawTeamsContent))) {
+                $partialResultTeams = @()
+            }
+            else {
+                $partialResultTeams = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+            }
         } catch {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."

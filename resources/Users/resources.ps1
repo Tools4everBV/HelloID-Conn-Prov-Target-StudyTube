@@ -23,7 +23,8 @@ function Resolve-StudyTubeError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -37,7 +38,8 @@ function Resolve-StudyTubeError {
             if ($errorDetailsObject.error_description) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -75,11 +77,18 @@ try {
         try {
             $rawUsersResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
             $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
-            $partialResultUsers = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawUsersResult | ConvertTo-Json -Depth 10))) | ConvertFrom-json
-        } catch {
+            if ($null -eq $rawUsersResult -or ($rawUsersResult -is [string] -and [string]::IsNullOrWhiteSpace($rawUsersResult))) {
+                $partialResultUsers = @()
+            }
+            else {
+                $partialResultUsers = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawUsersResult | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+            }
+        }
+        catch {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
-            } else {
+            }
+            else {
                 throw
             }
         }
@@ -95,7 +104,8 @@ try {
     Write-Information "Export [$($returnUsers.Count)] users to CSV: [$($actionContext.Configuration.UserCsvExportFileAndPath)]"
     $returnUsers | Select-Object id, full_name, uid, employee_number, email | Export-Csv -Path "$($actionContext.Configuration.UserCsvExportFileAndPath)" -NoTypeInformation -Force
     $outputContext.Success = $true
-} catch {
+}
+catch {
     $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -103,7 +113,8 @@ try {
         $errorObj = Resolve-StudyTubeError -ErrorObject $ex
         $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }

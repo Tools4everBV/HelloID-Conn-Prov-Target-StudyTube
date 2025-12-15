@@ -101,6 +101,7 @@ try {
         switch ($action) {
             'CreateAccount' {
                 Write-Information 'Creating and correlating StudyTube account'
+                $jsonBody = $actionContext.Data | ConvertTo-Json -Depth 10
                 $splatCreateUserParams = @{
                     Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/users"
                     Method      = 'POST'

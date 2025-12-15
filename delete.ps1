@@ -51,10 +51,6 @@ try {
         throw 'The account reference could not be found'
     }
 
-    Write-Information 'Setting authorization header'
-    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
-
     Write-Information 'Retrieving authorization token'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -65,6 +61,10 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+
+    Write-Information 'Setting authorization header'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
 
     # Add a message and the result of each of the validations showing what will happen during enforcement
     if ($actionContext.DryRun -eq $true) {
