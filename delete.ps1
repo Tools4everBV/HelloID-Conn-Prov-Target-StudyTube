@@ -61,6 +61,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -80,6 +82,8 @@ try {
                 Headers = $headers
             }
             $null = Invoke-RestMethod @splatUpdateUserParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
                 Message = 'Delete account was successful'

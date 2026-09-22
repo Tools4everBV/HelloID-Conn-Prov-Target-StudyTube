@@ -58,6 +58,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -76,8 +78,10 @@ try {
         }
         try {
             $rawUsersResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
             $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
-            if ($null -eq $rawUsersResult -or ($rawUsersResult -is [string] -and [string]::IsNullOrWhiteSpace($rawUsersResult))) {
+            if ($null -eq $rawUsersResult -or ($rawUsersResult -is [string] -and [string]::IsNullOrWhiteSpace($rawUsersResult)) -or $rawUsersResult.Count -eq 0) {
                 $partialResultUsers = @()
             }
             else {

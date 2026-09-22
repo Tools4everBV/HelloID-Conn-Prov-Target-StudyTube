@@ -58,6 +58,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -77,6 +79,8 @@ try {
                 ContentType = 'application/json'
             }
             $partialTeamResult = Invoke-RestMethod @splatRetrievePermissionsParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
         }
         catch {
             if ( $_.Exception.StatusCode -eq 429) {
@@ -114,6 +118,8 @@ try {
                 ContentType = 'application/json'
             }
             $partialTeamResult = Invoke-RestMethod @splatRetrievePermissionsParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
         }
         catch {
             if ( $_.Exception.StatusCode -eq 429) {
@@ -184,6 +190,8 @@ try {
 
             if (-not ($actionContext.DryRun -eq $True)) {
                 $null = Invoke-RestMethod @splatCreateResourceParams -Verbose:$false
+                # Rate limit: max 90 requests per minute
+                Start-Sleep -Milliseconds 750
             }
             else {
                 Write-Information "[DryRun] Create [$($resource)] StudyTube resource, will be executed during enforcement"
@@ -226,6 +234,8 @@ try {
             }
             if (-not ($actionContext.DryRun -eq $True)) {
                 $null = Invoke-RestMethod @splatUnarchiveResourceParams -Verbose:$false
+                # Rate limit: max 90 requests per minute
+                Start-Sleep -Milliseconds 750
             }
             else {
                 Write-Information "[DryRun] Unarchive [$($resource.name)] StudyTube resource, will be executed during enforcement"

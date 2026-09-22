@@ -1,0 +1,148 @@
+#################################################
+# HelloID-Conn-Prov-Target-StudyTube-Import
+# PowerShell V2
+#################################################
+
+# Enable TLS1.2
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
+#region functions
+function Resolve-StudyTubeError {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
+    )
+    process {
+        $httpErrorObj = [PSCustomObject]@{
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
+        }
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
+        }
+        try {
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
+            $httpErrorObj.FriendlyMessage = $errorDetailsObject.error
+            if ($errorDetailsObject.error_description) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
+            }
+        }
+        catch {
+            $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
+        }
+        Write-Output $httpErrorObj
+    }
+}
+#endregion
+
+try {
+    Write-Information 'Retrieving authorization token'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Content-Type', 'application/x-www-form-urlencoded')
+    $tokenBody = @{
+        client_id     = $($actionContext.Configuration.ClientId)
+        client_secret = $($actionContext.Configuration.ClientSecret)
+        grant_type    = 'client_credentials'
+        scope         = 'read write'
+    }
+    $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
+
+    Write-Information 'Setting authorization header'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Authorization', "Bearer $($tokenResponse.access_token)")
+
+    Write-Information 'Retrieving Users from StudyTube'
+    $pageSize = [int]$actionContext.Configuration.ResourcePageSize
+    $pageNumber = 1
+
+    do {
+        $splatGetUserParams = @{
+            Uri     = "$($actionContext.Configuration.BaseUrl)/api/v2/users?per_page=$($pageSize)&page=$pageNumber"
+            Method  = 'GET'
+            Headers = $headers
+        }
+        try {
+            $rawUsersResult = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
+            $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+            if ($null -eq $rawUsersResult -or ($rawUsersResult -is [string] -and [string]::IsNullOrWhiteSpace($rawUsersResult)) -or $rawUsersResult.Count -eq 0) {
+                $partialResultUsers = @()
+            }
+            else {
+                $partialResultUsers = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawUsersResult | ConvertTo-Json -Depth 10))) | ConvertFrom-json
+            }
+        }
+        catch {
+            if ( $_.Exception.StatusCode -eq 429) {
+                throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
+            }
+            else {
+                throw
+            }
+        }
+        if ($partialResultUsers.Count -gt 0) {
+            foreach ($importedAccount in $partialResultUsers) {
+                # Making sure only fieldMapping fields are imported
+                $data = @{}
+                foreach ($field in $actionContext.ImportFields) {
+                    $data[$field] = $importedAccount.$field
+                }
+
+                # Make sure the displayName has a value
+                $displayName = $($importedAccount.full_name).trim()
+                if ([string]::IsNullOrEmpty($displayName)) {
+                    $displayName = $importedAccount.Id
+                }
+
+                # Make sure the userName has a value
+                if ([string]::IsNullOrWhiteSpace($importedAccount.username)) {
+                    $importedAccount.username = $importedAccount.id
+                }
+
+                # Return the result
+                Write-Output @{
+                    AccountReference = $importedAccount.Id
+                    DisplayName      = $displayName
+                    UserName         = "$($importedAccount.UserName)".Substring(0, [math]::Min($importedAccount.UserName.Length, 100))
+                    Enabled          = $false
+                    Data             = $data
+                }
+            }
+        }
+        $pageNumber++
+        Write-Information "Users found [$($partialResultUsers.Count)]"
+
+    } while ( $partialResultUsers.Count -eq $pageSize )
+}
+catch {
+    $ex = $PSItem
+    if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+        $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+        $errorObj = Resolve-StudyTubeError -ErrorObject $ex
+        $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($errorObj.FriendlyMessage)"
+        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+    }
+    else {
+        $auditMessage = "Could not create StudyTube users resource CSV file. Error: $($ex.Exception.Message)"
+        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+    }
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Message = $auditMessage
+            IsError = $true
+        })
+}

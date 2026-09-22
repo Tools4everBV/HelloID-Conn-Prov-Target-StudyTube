@@ -1,8 +1,7 @@
 #####################################################################
-# HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-DynamicPermission
-#
-# Version: 1.1.0
-#####################################################################
+# HelloID-Conn-Prov-Target-StudyTubeV2-Entitlement-DynamicPermission-Teams-Users
+# PowerShell V2
+#####################################################
 
 $currentPermissions = @{}
 foreach ($permission in $actionContext.CurrentPermissions) {
@@ -62,6 +61,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Verbose 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -128,6 +129,8 @@ try {
                         }
                     }
                     $grantPermissionsResponse = Invoke-RestMethod @splatGrantPermissionParams -verbose:$false
+                    # Rate limit: max 90 requests per minute
+                    Start-Sleep -Milliseconds 750
                     if ($grantPermissionsResponse) {
                         $outputContext.AuditLogs.Add([PSCustomObject]@{
                                 Action  = "GrantPermission"
@@ -179,6 +182,8 @@ try {
                     }
                     try {
                         $null = Invoke-RestMethod @splatRevokePermissionParams -StatusCodeVariable statusCode -verbose:$false
+                        # Rate limit: max 90 requests per minute
+                        Start-Sleep -Milliseconds 750
                         if ($statusCode -eq 204) {
                             $outputContext.AuditLogs.Add([PSCustomObject]@{
                                     Action  = "RevokePermission"
