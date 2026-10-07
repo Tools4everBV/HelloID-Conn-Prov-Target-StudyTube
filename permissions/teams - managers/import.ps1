@@ -135,6 +135,7 @@ try {
                         Write-Output $permission
                     }
                 }
+                $pageNumberTeamMembers++
             } while ($partialResultTeamManagers.Count -eq $pageSize)
         }
         $pageNumber++
