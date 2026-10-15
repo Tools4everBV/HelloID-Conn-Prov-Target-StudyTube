@@ -17,7 +17,6 @@ All notable changes to this project will be documented in this file. The format 
 
 - Changed the permission reference used by academy-team permissions.
 - Added rate-limit handling for StudyTube's limit of 90 requests per minute.
-- Removed the team CSV export dependency from the connector documentation and configuration guidance.
 
 ### Fixed
 - Correlate in create with a existing `emailAdress`
