@@ -30,6 +30,7 @@
         - [Team managers](#team-managers)
         - [Importing permissions](#importing-permissions)
         - [Dynamic permissions](#dynamic-permissions)
+        - [Retrieve teams](#retrieve-teams)
         - [Creating teams](#creating-teams)
     - [`email_address` field must be unique](#email_address-field-must-be-unique)
     - [Custom fields](#custom-fields)
@@ -57,14 +58,14 @@ The API documentation can be found on: https://public-api.studytube.nl/api/v2/do
 
 The following features are available:
 
-| Feature                                   | Supported | Actions                  | Remarks                                                                                               |
-| ----------------------------------------- | --------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| **Account Lifecycle**                     | ✅         | Create, Update, Delete   | Enable and disable are not available in the StudyTube API.                                            |
-| **Permissions**                           | ✅         | Retrieve, Grant, Revoke  | Academy-team users and managers are supported (managers not dynamic).                                 |
-| **Resources**                             | ✅         | Create, Retrieve, Update | Teams can be created and archived teams can be unarchived. Users are exported to CSV for correlation. |
-| **Entitlement Import: Accounts**          | ✅         | Import                   |                                                                                                       |
-| **Entitlement Import: Permissions**       | ✅         | Import                   | Team - users and Team - managers (no sub permission import script available)                          |
-| **Governance Reconciliation Resolutions** | ✅         | -                        |                                                                                                       |
+| Feature                                   | Supported | Actions                  | Remarks                                                                                                         |
+| ----------------------------------------- | --------- | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **Account Lifecycle**                     | ✅         | Create, Update, Delete   | Enable and disable are not available in the StudyTube API.                                                      |
+| **Permissions**                           | ✅         | Retrieve, Grant, Revoke  | Academy-team users and managers are supported (managers not dynamic).                                           |
+| **Resources**                             | ✅         | Create, Retrieve, Update | Teams can be created and archived teams can be unarchived. Users and Teams are exported to CSV for correlation. |
+| **Entitlement Import: Accounts**          | ✅         | Import                   |                                                                                                                 |
+| **Entitlement Import: Permissions**       | ✅         | Import                   | Team - users and Team - managers (no sub permission import script available)                                    |
+| **Governance Reconciliation Resolutions** | ✅         | -                        |                                                                                                                 |
 
 ## Getting started
 
@@ -157,6 +158,11 @@ Each permission folder contains an `import.ps1` script that imports teams togeth
 ##### Dynamic permissions
 
 If a property in the person contract is directly linked to an academy team in StudyTube, use the `subPermissions.ps1` script to assign permissions dynamically.
+
+##### Retrieve teams
+Because retrieving teams could result in too many requests being made, a separate resource script is provided to retrieve all teams and export them to a CSV.
+
+If you use the _subPermissions_ script, this CSV file will be searched to look up the team name and ensure it matches a property from the person contract
 
 ##### Creating teams
 
