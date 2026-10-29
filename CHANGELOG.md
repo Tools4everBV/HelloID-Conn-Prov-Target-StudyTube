@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [3.0.0] - 22-09-2026
+
+> [!IMPORTANT]
+> The permission reference has changed. Existing implementations must verify their stored permission references before upgrading.
+
+### Added
+
+- Added support for academy-team manager permissions.
+- Added account import script.
+- Added permission import scripts for team members and managers.
+
+### Changed
+
+- Changed the permission reference used by academy-team permissions.
+- Added rate-limit handling for StudyTube's limit of 90 requests per minute.
+
+### Fixed
+- Correlate in create with a existing `emailAdress`
+- Paged result exactly the same as the page size
+
 ## [2.0.1] - 06-11-2025
 
 ### Fixed

@@ -59,6 +59,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -81,7 +83,7 @@ try {
     }
 
     # Validate if the email address is unique within StudyTube
-    if ($actionContext.Data.email -in $employeeListResult.email) {
+    if (($actionContext.Data.email -in $employeeListResult.email) -and ($actionContext.Data.email -ne $correlatedAccount.email)) {
         throw "Email address: [$($actionContext.Data.email)] already in use in StudyTube"
     }
 
@@ -110,6 +112,8 @@ try {
                     Body        = ([System.Text.Encoding]::UTF8.GetBytes($jsonBody))
                 }
                 $createdAccount = Invoke-RestMethod @splatCreateUserParams -Verbose:$false
+                # Rate limit: max 90 requests per minute
+                Start-Sleep -Milliseconds 750
                 $outputContext.Data = $createdAccount
                 $outputContext.AccountReference = $createdAccount.id
                 $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]"

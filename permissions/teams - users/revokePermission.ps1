@@ -1,5 +1,5 @@
 #####################################################
-# HelloID-Conn-Prov-Target-StudyTube-GrantPermission
+# HelloID-Conn-Prov-Target-StudyTube-RevokePermission-Teams-Users
 # PowerShell V2
 #####################################################
 
@@ -62,6 +62,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -69,28 +71,41 @@ try {
 
     # Add a message and the result of each of the validations showing what will happen during enforcement
     if ($actionContext.DryRun -eq $true) {
-        Write-Information "[DryRun] Grant StudyTube entitlement: [$($actionContext.References.Permission.DisplayName)], will be executed during enforcement"
+        Write-Information "[DryRun] Revoke StudyTube entitlement: [$($actionContext.PermissionDisplayName)], will be executed during enforcement"
     }
 
     # Process
     if (-not($actionContext.DryRun -eq $true)) {
-        Write-Information "Granting StudyTubeV2 entitlement: [$($actionContext.References.Permission.DisplayName)] and ID: [$($actionContext.References.Permission.Reference)]"
-        $splatGrantPermissionParams = @{
-            Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/$($actionContext.References.Permission.Reference)/users"
-            Method      = 'POST'
-            Headers     = $headers
-            ContentType = 'application/x-www-form-urlencoded'
-            Body        = @{
-                user_id = $actionContext.References.Account
+        try {
+            Write-Information "Revoking StudyTube permission: [$($actionContext.References.Permission.Reference)]"
+            $splatRevokePermissionParams = @{
+                Uri         = "$($actionContext.Configuration.BaseUrl)/api/v2/academy-teams/$($actionContext.References.Permission.Reference)/users"
+                Method      = 'DELETE'
+                Headers     = $headers
+                ContentType = 'application/x-www-form-urlencoded'
+                Body        = @{
+                    user_id = $actionContext.References.Account
+                }
+            }
+            $null = Invoke-RestMethod @splatRevokePermissionParams -verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                Message = "Revoke permission [$($actionContext.PermissionDisplayName)] was successful"
+                IsError = $false
+            })
+        } catch {
+            if ($_.Exception.Response.StatusCode -eq 404) {
+                $outputContext.Success = $true
+                $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "Revoke permission [$($actionContext.PermissionDisplayName)] was successful"
+                    IsError = $false
+                })
+            } else {
+                throw
             }
         }
-        $null = Invoke-RestMethod @splatGrantPermissionParams -verbose:$false
-
-        $outputContext.Success = $true
-        $outputContext.AuditLogs.Add([PSCustomObject]@{
-            Message = "Grant permission [$($actionContext.References.Permission.DisplayName)] was successful"
-            IsError = $false
-        })
     }
 } catch {
     $outputContext.success = $false
@@ -98,10 +113,10 @@ try {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-StudyTubeError -ErrorObject $ex
-        $auditMessage = "Could not grant StudyTube permission. Error: $($errorObj.FriendlyMessage)"
+        $auditMessage = "Could not revoke StudyTube permission. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     } else {
-        $auditMessage = "Could not grant StudyTube permission. Error: $($_.Exception.Message)"
+        $auditMessage = "Could not revoke StudyTube permission. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{

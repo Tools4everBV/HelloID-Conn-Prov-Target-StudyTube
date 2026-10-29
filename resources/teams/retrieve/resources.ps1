@@ -23,7 +23,8 @@ function Resolve-StudyTubeError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -37,7 +38,8 @@ function Resolve-StudyTubeError {
             if ($errorDetailsObject.error_description) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -56,6 +58,8 @@ try {
         scope         = 'read write'
     }
     $tokenResponse = Invoke-RestMethod -Uri "$($actionContext.Configuration.TokenUrl)/gateway/oauth/token" -Method 'POST' -Headers $headers -Body $tokenBody -Verbose:$false
+    # Rate limit: max 90 requests per minute
+    Start-Sleep -Milliseconds 750
 
     Write-Information 'Setting authorization header'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
@@ -74,6 +78,8 @@ try {
         }
         try {
             $rawTeamsContent = Invoke-RestMethod @splatGetUserParams -Verbose:$false
+            # Rate limit: max 90 requests per minute
+            Start-Sleep -Milliseconds 750
             $isoEncoding = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
             if ($null -eq $rawTeamsContent -or ($rawTeamsContent -is [string] -and [string]::IsNullOrWhiteSpace($rawTeamsContent))) {
                 $partialResultTeams = @()
@@ -81,10 +87,12 @@ try {
             else {
                 $partialResultTeams = [System.Text.Encoding]::UTF8.GetString($isoEncoding.GetBytes(($rawTeamsContent | ConvertTo-Json -Depth 10))) | ConvertFrom-json
             }
-        } catch {
+        }
+        catch {
             if ( $_.Exception.StatusCode -eq 429) {
                 throw "TooManyRequests: Hit the rating limit. Please try using a higher ResourcePageSize configuration. The current is [$($actionContext.Configuration.ResourcePageSize)]. The API maximum is 1000."
-            } else {
+            }
+            else {
                 throw
             }
         }
@@ -99,7 +107,8 @@ try {
     Write-Information "Export [$($returnTeams.Count)] users to CSV: [$($actionContext.Configuration.TeamsCsvExportFileAndPath)]"
     $returnTeams | Select-Object id, name, archived, external_id, organizational_unit, created_at | Export-Csv -Path "$($actionContext.Configuration.TeamsCsvExportFileAndPath)" -NoTypeInformation -Force
     $outputContext.Success = $true
-} catch {
+}
+catch {
     $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -107,7 +116,8 @@ try {
         $errorObj = Resolve-StudyTubeError -ErrorObject $ex
         $auditMessage = "Could not create StudyTube teams resource CSV file. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not create StudyTube teams resource CSV file. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
